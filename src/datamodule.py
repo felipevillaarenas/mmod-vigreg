@@ -183,9 +183,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             video_sampler=sampler,
         )
         return torch.utils.data.DataLoader(
-            self.val_dataset,
-            batch_size=self.args.batch_size,
-            num_workers=self.args.workers,
+            s
         )
 
 
