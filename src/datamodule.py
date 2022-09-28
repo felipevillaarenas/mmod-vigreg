@@ -1,8 +1,12 @@
 import itertools
+import argparse
+
 import os
 
 import pytorch_lightning
 import pytorchvideo.data
+import torchvision
+import torchaudio
 import torch
 
 from pytorchvideo.transforms import (
@@ -67,6 +71,11 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
                 self._audio_transform(),
                 RemoveKey("video"),
             ]
+        elif self.args.data_type == "video-audio":
+            transform = [
+                self._video_transform(mode),
+                self._audio_transform(),
+            ]
         else:
             raise Exception(f"{self.args.data_type} not supported")
 
@@ -83,8 +92,13 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             key="video",
             transform=Compose(
                 [
-                    UniformTemporalSubsample(args.video_num_subsampled),
-                    Normalize(args.video_means, args.video_stds),
+                    UniformTemporalSubsample(
+                        num_samples=args.video_num_subsampled,
+                        temporal_dim=1
+                        ),
+                    Normalize(
+                        mean=args.video_means, 
+                        std=args.video_stds),
                 ]
                 + (
                     [
@@ -92,13 +106,13 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
                             min_size=args.video_min_short_side_scale,
                             max_size=args.video_max_short_side_scale,
                         ),
-                        RandomCrop(args.video_crop_size),
+                        RandomCrop(size=args.video_crop_size),
                         RandomHorizontalFlip(p=args.video_horizontal_flip_p),
                     ]
                     if mode == "train"
                     else [
-                        ShortSideScale(args.video_min_short_side_scale),
-                        CenterCrop(args.video_crop_size),
+                        ShortSideScale(size=args.video_min_short_side_scale),
+                        CenterCrop(size=args.video_crop_size),
                     ]
                 )
             ),
@@ -134,7 +148,10 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
                     ),
                     Lambda(lambda x: x.clamp(min=eps)),
                     Lambda(torch.log),
-                    UniformTemporalSubsample(args.audio_mel_num_subsample),
+                    UniformTemporalSubsample(
+                        num_samples=args.audio_mel_num_subsample,
+                        temporal_dim=1
+                        ),
                     Lambda(lambda x: x.transpose(1, 0)),  # (F, T) -> (T, F)
                     Lambda(
                         lambda x: x.view(1, x.size(0), 1, x.size(1))
@@ -144,15 +161,20 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             ),
         )
 
+    def prepare_data(self):
+        # download
+        #torchvision.datasets.Kinetics(self.data_dir, split="val", num_classes=self.num_classes,download=True)
+        pass
+
     def train_dataloader(self):
         """
         Defines the train DataLoader that the PyTorch Lightning Trainer trains/tests with.
         """
-        sampler = DistributedSampler if self.trainer.use_ddp else RandomSampler
+        sampler = RandomSampler#DistributedSampler if self.trainer.use_ddp else RandomSampler
         train_transform = self._make_transforms(mode="train")
         self.train_dataset = LimitDataset(
             pytorchvideo.data.Kinetics(
-                data_path=os.path.join(self.args.data_path, "train.csv"),
+                data_path=os.path.join(self.args.data_path, "train"),
                 clip_sampler=pytorchvideo.data.make_clip_sampler(
                     "random", self.args.clip_duration
                 ),
@@ -171,10 +193,10 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         """
         Defines the train DataLoader that the PyTorch Lightning Trainer trains/tests with.
         """
-        sampler = RandomSampler #TODO DistributedSampler if self.trainer.use_ddp else RandomSampler
+        sampler = RandomSampler#DistributedSampler if self.trainer.use_ddp else RandomSampler
         val_transform = self._make_transforms(mode="val")
         self.val_dataset = pytorchvideo.data.Kinetics(
-            data_path=os.path.join(self.args.data_path, "val.csv"),
+            data_path=os.path.join(self.args.data_path, "val"),
             clip_sampler=pytorchvideo.data.make_clip_sampler(
                 "uniform", self.args.clip_duration
             ),
@@ -183,7 +205,9 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             video_sampler=sampler,
         )
         return torch.utils.data.DataLoader(
-            s
+            self.val_dataset,
+            batch_size=self.args.batch_size,
+            num_workers=self.args.workers,
         )
 
 
@@ -207,3 +231,41 @@ class LimitDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.dataset.num_videos
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    # Data parameters.
+    parser.add_argument("--data_path", default="./data/kinetics400small/", type=str)
+    parser.add_argument("--video_path_prefix", default="", type=str)
+    parser.add_argument("--workers", default=0, type=int)
+    parser.add_argument("--batch_size", default=32, type=int)
+    parser.add_argument("--clip_duration", default=5, type=float)
+    parser.add_argument(
+        "--data_type", default="video-audio", choices=["video", "audio"], type=str
+    )
+    parser.add_argument("--video_num_subsampled", default=16, type=int)
+    parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
+    parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
+    parser.add_argument("--video_crop_size", default=224, type=int)
+    parser.add_argument("--video_min_short_side_scale", default=256, type=int)
+    parser.add_argument("--video_max_short_side_scale", default=320, type=int)
+    parser.add_argument("--video_horizontal_flip_p", default=0.5, type=float)
+    parser.add_argument("--audio_raw_sample_rate", default=44100, type=int)
+    parser.add_argument("--audio_resampled_rate", default=16000, type=int)
+    parser.add_argument("--audio_mel_window_size", default=32, type=int)
+    parser.add_argument("--audio_mel_step_size", default=16, type=int)
+    parser.add_argument("--audio_num_mels", default=80, type=int)
+    parser.add_argument("--audio_mel_num_subsample", default=128, type=int)
+    parser.add_argument("--audio_logmel_mean", default=-7.03, type=float)
+    parser.add_argument("--audio_logmel_std", default=4.66, type=float)
+
+    args = parser.parse_args()
+
+    dm = KineticsDataModule(args)
+    dm.val_dataloader()
+    sample = dm.val_dataset.__next__()
+    audio = sample['audio']
+    video = sample['video']
+
+    print("run exp")
