@@ -5,28 +5,11 @@ import os
 
 import pytorch_lightning
 import pytorchvideo.data
-import torchvision
-import torchaudio
 import torch
 
-from pytorchvideo.transforms import (
-    ApplyTransformToKey,
-    Normalize,
-    RandomShortSideScale,
-    RemoveKey,
-    ShortSideScale,
-    UniformTemporalSubsample,
-)
 from torch.utils.data import DistributedSampler, RandomSampler
-from torchaudio.transforms import MelSpectrogram, Resample
-from torchvision.transforms import (
-    CenterCrop,
-    Compose,
-    Lambda,
-    RandomCrop,
-    RandomHorizontalFlip,
-)
 
+from transforms import MultiModeTrainDataTransform
 
 class KineticsDataModule(pytorch_lightning.LightningDataModule):
     """
@@ -39,128 +22,6 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         self.args = args
         super().__init__()
 
-    def _make_transforms(self, mode: str):
-        """
-        ##################
-        # PTV Transforms #
-        ##################
-        # Each PyTorchVideo dataset has a "transform" arg. This arg takes a
-        # Callable[[Dict], Any], and is used on the output Dict of the dataset to
-        # define any application specific processing or augmentation. Transforms can
-        # either be implemented by the user application or reused from any library
-        # that's domain specific to the modality. E.g. for video we recommend using
-        # TorchVision, for audio we recommend TorchAudio.
-        #
-        # To improve interoperation between domain transform libraries, PyTorchVideo
-        # provides a dictionary transform API that provides:
-        #   - ApplyTransformToKey(key, transform) - applies a transform to specific modality
-        #   - RemoveKey(key) - remove a specific modality from the clip
-        #
-        # In the case that the recommended libraries don't provide transforms that
-        # are common enough for PyTorchVideo use cases, PyTorchVideo will provide them in
-        # the same structure as the recommended library. E.g. TorchVision didn't
-        # have a RandomShortSideScale video transform so it's been added to PyTorchVideo.
-        """
-        if self.args.data_type == "video":
-            transform = [
-                self._video_transform(mode),
-                RemoveKey("audio"),
-            ]
-        elif self.args.data_type == "audio":
-            transform = [
-                self._audio_transform(),
-                RemoveKey("video"),
-            ]
-        elif self.args.data_type == "video-audio":
-            transform = [
-                self._video_transform(mode),
-                self._audio_transform(),
-            ]
-        else:
-            raise Exception(f"{self.args.data_type} not supported")
-
-        return Compose(transform)
-
-    def _video_transform(self, mode: str):
-        """
-        This function contains example transforms using both PyTorchVideo and TorchVision
-        in the same Callable. For 'train' mode, we use augmentations (prepended with
-        'Random'), for 'val' mode we use the respective determinstic function.
-        """
-        args = self.args
-        return ApplyTransformToKey(
-            key="video",
-            transform=Compose(
-                [
-                    UniformTemporalSubsample(
-                        num_samples=args.video_num_subsampled,
-                        temporal_dim=1
-                        ),
-                    Normalize(
-                        mean=args.video_means, 
-                        std=args.video_stds),
-                ]
-                + (
-                    [
-                        RandomShortSideScale(
-                            min_size=args.video_min_short_side_scale,
-                            max_size=args.video_max_short_side_scale,
-                        ),
-                        RandomCrop(size=args.video_crop_size),
-                        RandomHorizontalFlip(p=args.video_horizontal_flip_p),
-                    ]
-                    if mode == "train"
-                    else [
-                        ShortSideScale(size=args.video_min_short_side_scale),
-                        CenterCrop(size=args.video_crop_size),
-                    ]
-                )
-            ),
-        )
-
-    def _audio_transform(self):
-        """
-        This function contains example transforms using both PyTorchVideo and TorchAudio
-        in the same Callable.
-        """
-        args = self.args
-        n_fft = int(
-            float(args.audio_resampled_rate) / 1000 * args.audio_mel_window_size
-        )
-        hop_length = int(
-            float(args.audio_resampled_rate) / 1000 * args.audio_mel_step_size
-        )
-        eps = 1e-10
-        return ApplyTransformToKey(
-            key="audio",
-            transform=Compose(
-                [
-                    Resample(
-                        orig_freq=args.audio_raw_sample_rate,
-                        new_freq=args.audio_resampled_rate,
-                    ),
-                    MelSpectrogram(
-                        sample_rate=args.audio_resampled_rate,
-                        n_fft=n_fft,
-                        hop_length=hop_length,
-                        n_mels=args.audio_num_mels,
-                        center=False,
-                    ),
-                    Lambda(lambda x: x.clamp(min=eps)),
-                    Lambda(torch.log),
-                    UniformTemporalSubsample(
-                        num_samples=args.audio_mel_num_subsample,
-                        temporal_dim=1
-                        ),
-                    Lambda(lambda x: x.transpose(1, 0)),  # (F, T) -> (T, F)
-                    Lambda(
-                        lambda x: x.view(1, x.size(0), 1, x.size(1))
-                    ),  # (T, F) -> (1, T, 1, F)
-                    Normalize((args.audio_logmel_mean,), (args.audio_logmel_std,)),
-                ]
-            ),
-        )
-
     def prepare_data(self):
         # download
         #torchvision.datasets.Kinetics(self.data_dir, split="val", num_classes=self.num_classes,download=True)
@@ -171,12 +32,12 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer trains/tests with.
         """
         sampler = RandomSampler#DistributedSampler if self.trainer.use_ddp else RandomSampler
-        train_transform = self._make_transforms(mode="train")
+        train_transform = MultiModeTrainDataTransform(self.args,mode="train")
         self.train_dataset = LimitDataset(
             pytorchvideo.data.Kinetics(
                 data_path=os.path.join(self.args.data_path, "train"),
                 clip_sampler=pytorchvideo.data.make_clip_sampler(
-                    "random", self.args.clip_duration
+                    "random", self.args.total_clip_duration
                 ),
                 video_path_prefix=self.args.video_path_prefix,
                 transform=train_transform,
@@ -194,11 +55,11 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer trains/tests with.
         """
         sampler = RandomSampler#DistributedSampler if self.trainer.use_ddp else RandomSampler
-        val_transform = self._make_transforms(mode="val")
+        val_transform = MultiModeTrainDataTransform(self.args,mode="val")
         self.val_dataset = pytorchvideo.data.Kinetics(
             data_path=os.path.join(self.args.data_path, "val"),
             clip_sampler=pytorchvideo.data.make_clip_sampler(
-                "uniform", self.args.clip_duration
+                "uniform", self.args.total_clip_duration
             ),
             video_path_prefix=self.args.video_path_prefix,
             transform=val_transform,
@@ -240,10 +101,9 @@ if __name__ == "__main__":
     parser.add_argument("--video_path_prefix", default="", type=str)
     parser.add_argument("--workers", default=0, type=int)
     parser.add_argument("--batch_size", default=32, type=int)
-    parser.add_argument("--clip_duration", default=5, type=float)
-    parser.add_argument(
-        "--data_type", default="video-audio", choices=["video", "audio"], type=str
-    )
+    parser.add_argument("--subsample_clip_duration", default=1, type=float)
+    parser.add_argument("--total_clip_duration", default=10, type=float)
+    parser.add_argument("--data_type", default="video-audio", choices=["video", "audio"], type=str)
     parser.add_argument("--video_num_subsampled", default=16, type=int)
     parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
     parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
