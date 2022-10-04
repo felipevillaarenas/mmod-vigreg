@@ -9,12 +9,14 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from model import VideoClassificationLightningModule
 from datamodule import KineticsDataModule
 
+
 def main():
     """
-    To train the ResNet with the Kinetics dataset we construct the two modules above,
-    and pass them to the fit function of a pytorch_lightning.Trainer.
-    This example can be run either locally (with default parameters) or on a Slurm
-    cluster. To run on a Slurm cluster provide the --on_cluster argument.
+    To train the ResNet with the Kinetics dataset we construct the two modules
+    above, and pass them to the fit function of a pytorch_lightning.Trainer.
+    This example can be run either locally (with default parameters) or on
+    a Slurm cluster. To run on a Slurm cluster provide the --on_cluster
+    argument.
     """
     setup_logger()
 
@@ -23,7 +25,7 @@ def main():
 
     #  Cluster parameters.
     parser.add_argument("--on_cluster", action="store_true")
-    parser.add_argument("--job_name", default="ptv_video_classification", type=str)
+    parser.add_argument("--job_name", default="ssl", type=str)
     parser.add_argument("--working_directory", default=".", type=str)
     parser.add_argument("--partition", default="dev", type=str)
 
@@ -39,17 +41,33 @@ def main():
     )
 
     # Data parameters.
-    parser.add_argument("--data_path", default="./data/video/kinetics400/", type=str)
-    parser.add_argument("--video_path_prefix", default="", type=str)
-    parser.add_argument("--workers", default=8, type=int)
-    parser.add_argument("--batch_size", default=32, type=int)
-    parser.add_argument("--clip_duration", default=2, type=float)
     parser.add_argument(
-        "--data_type", default="video", choices=["video", "audio"], type=str
+        "--data_path",
+        default="./data/kinetics400small/",
+        type=str
     )
-    parser.add_argument("--video_num_subsampled", default=8, type=int)
-    parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
-    parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
+    parser.add_argument("--video_path_prefix", default="", type=str)
+    parser.add_argument("--workers", default=0, type=int)
+    parser.add_argument("--batch_size", default=32, type=int)
+    parser.add_argument("--subsample_clip_duration", default=1, type=float)
+    parser.add_argument("--total_clip_duration", default=10, type=float)
+    parser.add_argument(
+        "--data_type",
+        default="video-audio",
+        choices=["video", "audio"],
+        type=str
+    )
+    parser.add_argument("--video_num_subsampled", default=16, type=int)
+    parser.add_argument(
+        "--video_means",
+        default=(0.45, 0.45, 0.45),
+        type=tuple
+    )
+    parser.add_argument(
+        "--video_stds",
+        default=(0.225, 0.225, 0.225),
+        type=tuple
+    )
     parser.add_argument("--video_crop_size", default=224, type=int)
     parser.add_argument("--video_min_short_side_scale", default=256, type=int)
     parser.add_argument("--video_max_short_side_scale", default=320, type=int)
@@ -85,7 +103,9 @@ def train(args):
 
 def setup_logger():
     ch = logging.StreamHandler()
-    formatter = logging.Formatter("\n%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    formatter = logging.Formatter(
+        "\n%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     ch.setFormatter(formatter)
     logger = logging.getLogger("pytorchvideo")
     logger.setLevel(logging.DEBUG)
