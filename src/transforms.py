@@ -35,7 +35,7 @@ class MultiModeTrainDataTransform:
                 ),
                 Div255(),
                 Normalize(
-                    mean=args.video_means, 
+                    mean=args.video_means,
                     std=args.video_stdvideos
                 ),
             ]

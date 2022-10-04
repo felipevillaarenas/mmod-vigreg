@@ -1,13 +1,11 @@
 import argparse
-import logging
-
 
 import pytorch_lightning
 
 from pytorch_lightning.callbacks import LearningRateMonitor
 
-from model import VideoClassificationLightningModule
 from datamodule import KineticsDataModule
+from model import MultiModVICRegModule
 
 
 def main():
@@ -18,7 +16,6 @@ def main():
     a Slurm cluster. To run on a Slurm cluster provide the --on_cluster
     argument.
     """
-    setup_logger()
 
     pytorch_lightning.trainer.seed_everything()
     parser = argparse.ArgumentParser()
@@ -96,20 +93,9 @@ def main():
 
 def train(args):
     trainer = pytorch_lightning.Trainer.from_argparse_args(args)
-    classification_module = VideoClassificationLightningModule(args)
-    data_module = KineticsDataModule(args)
-    trainer.fit(classification_module, data_module)
-
-
-def setup_logger():
-    ch = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "\n%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    ch.setFormatter(formatter)
-    logger = logging.getLogger("pytorchvideo")
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(ch)
+    model = MultiModVICRegModule(args)
+    dm = KineticsDataModule(args)
+    trainer.fit(model, datamodule=dm)
 
 
 if __name__ == "__main__":
