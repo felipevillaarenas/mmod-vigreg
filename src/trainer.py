@@ -2,7 +2,9 @@ import argparse
 
 import pytorch_lightning
 
-from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning import  Trainer
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pl_bolts.callbacks.ssl_online import SSLOnlineEvaluator
 
 from datamodule import KineticsDataModule
 from model import MultiModVICRegModule
@@ -20,51 +22,17 @@ def main():
     pytorch_lightning.trainer.seed_everything()
     parser = argparse.ArgumentParser()
 
-    #  Cluster parameters.
-    parser.add_argument("--on_cluster", action="store_true")
-    parser.add_argument("--job_name", default="ssl", type=str)
-    parser.add_argument("--working_directory", default=".", type=str)
-    parser.add_argument("--partition", default="dev", type=str)
-
-    # Model parameters.
-    parser.add_argument("--lr", "--learning-rate", default=0.1, type=float)
-    parser.add_argument("--momentum", default=0.9, type=float)
-    parser.add_argument("--weight_decay", default=1e-4, type=float)
-    parser.add_argument(
-        "--arch",
-        default="video_resnet",
-        choices=["video_resnet", "audio_resnet"],
-        type=str,
-    )
-
-    # Data parameters.
-    parser.add_argument(
-        "--data_path",
-        default="./data/kinetics400small/",
-        type=str
-    )
+    # Data Loader.
+    parser.add_argument("--data_path",default="./data/kinetics400small/", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
-    parser.add_argument("--workers", default=0, type=int)
+
+    # Data Transforms
     parser.add_argument("--batch_size", default=32, type=int)
     parser.add_argument("--subsample_clip_duration", default=1, type=float)
     parser.add_argument("--total_clip_duration", default=10, type=float)
-    parser.add_argument(
-        "--data_type",
-        default="video-audio",
-        choices=["video", "audio"],
-        type=str
-    )
     parser.add_argument("--video_num_subsampled", default=16, type=int)
-    parser.add_argument(
-        "--video_means",
-        default=(0.45, 0.45, 0.45),
-        type=tuple
-    )
-    parser.add_argument(
-        "--video_stds",
-        default=(0.225, 0.225, 0.225),
-        type=tuple
-    )
+    parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
+    parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
     parser.add_argument("--video_crop_size", default=224, type=int)
     parser.add_argument("--video_min_short_side_scale", default=256, type=int)
     parser.add_argument("--video_max_short_side_scale", default=320, type=int)
@@ -78,25 +46,80 @@ def main():
     parser.add_argument("--audio_logmel_mean", default=-7.03, type=float)
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
 
-    # Trainer parameters.
-    parser = pytorch_lightning.Trainer.add_argparse_args(parser)
-    parser.set_defaults(
-        max_epochs=200,
-        callbacks=[LearningRateMonitor()],
-        replace_sampler_ddp=False,
-    )
+    # Optim params
+    parser.add_argument("--optimizer", default="lars", type=str)
+    parser.add_argument("--exclude_bn_bias", default=False, type=bool)
+    parser.add_argument("--weight_decay", default=1e-4, type=float)
+    parser.add_argument("--learning_rate", default=0.3, type=float)
+    parser.add_argument("--max_epochs", default=800, type=int)
+    parser.add_argument("--fp32", default=False, type=bool)
+    parser.add_argument("--warmup_epochs", default=10, type=int)
+
+    # Loss
+    parser.add_argument("--invariance-coeff", default=25.0, type=float)
+    parser.add_argument("--variance-coeff", default=25.0, type=float)
+    parser.add_argument("--covariance-coeff", default=1.0, type=float)
+
+    # Trainer & Infrastructure
+    parser.add_argument("--accelerator", default="auto", type=str)
+    parser.add_argument("--devices", default=1, type=int)
+    parser.add_argument("--workers", default=0, type=int)
+    parser.add_argument("--nodes", default=1, type=int)
+
+    # Online eval
+    parser.add_argument("--online_ft", default=True, type=bool)
 
     # Build trainer, ResNet lightning-module and Kinetics data-module.
     args = parser.parse_args()
+
     train(args)
 
 
 def train(args):
-    trainer = pytorch_lightning.Trainer.from_argparse_args(args)
     model = MultiModVICRegModule(args)
     dm = KineticsDataModule(args)
+
+    callbacks = list()
+
+    # Callback learning rate monitor
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+    callbacks.append(lr_monitor)
+
+    # Callback model checkpoint
+    model_checkpoint = ModelCheckpoint(
+        save_last=True,
+        save_top_k=1,
+        monitor="train_loss"
+    )
+    callbacks.append(model_checkpoint)
+    
+    # Callback online evaluator
+    online_evaluator = None
+    if args.online_ft:
+        online_evaluator = SSLOnlineEvaluator(
+            drop_p=0.0,
+            hidden_dim=None,
+            z_dim=model.embedding_size,
+            num_classes=args.num_classes,
+            dataset=args.dataset,
+        )
+        callbacks.append(online_evaluator)
+    
+
+    trainer = Trainer(
+        max_epochs=args.max_epochs,
+        accelerator=args.accelerator,
+        devices=args.devices,
+        num_nodes=args.num_nodes,
+        strategy="ddp" if args.devices > 1 else None,
+        sync_batchnorm=True if args.devices > 1 else False,
+        precision=32 if args.fp32 else 16,
+        callbacks=callbacks,
+    )
+
     trainer.fit(model, datamodule=dm)
 
 
 if __name__ == "__main__":
     main()
+    
