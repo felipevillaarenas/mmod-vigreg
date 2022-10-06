@@ -5,6 +5,8 @@ from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
 from pytorchvideo.models.resnet import create_resnet, create_acoustic_resnet
 
+from loss import VICRegLoss
+
 
 class MultiModVICRegModule(pytorch_lightning.LightningModule):
     """
@@ -19,6 +21,20 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         # Init backbone
         self.video_backbone = self.init_video_backbone()
         self.audio_backbone = self.init_audio_backbone()
+
+        # Init loss
+        self.intra_video_loss = VICRegLoss(
+            self.args.batch_size,
+            self.args.num_features_intra_video
+        )
+        self.intra_audio_loss = VICRegLoss(
+            self.args.batch_size,
+            self.args.num_features_intra_video
+        )
+        self.cross_audio_video_loss = VICRegLoss(
+            self.args.batch_size,
+            self.args.num_features_cross_audio_video
+        )
 
     def init_video_backbone(self):
         video_backbone = create_resnet(
@@ -38,62 +54,19 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         """
         Forward defines the prediction/inference actions.
         """
-        return self.model(x)
+        return (self.video_backbone(x['video']), self.audio_backbone(x['audio']))
 
-    def vigreg_loss(self, z1, z2):
-        # invariance Loss
-        invariance_loss = F.mse_loss(z1, z2)
-
-        # Share operation for Variance and Covariance
-        z1 = z1 - z1.mean(dim=0)
-        z2 = z2 - z2.mean(dim=0)
-
-        # Variance Loss
-        std_z1 = torch.sqrt(z1.var(dim=0) + 0.0001)
-        std_z2 = torch.sqrt(z2.var(dim=0) + 0.0001)
-        variance_loss_z1 = torch.mean(F.relu(1 - std_z1)) / 2
-        variance_loss_z2 = torch.mean(F.relu(1 - std_z2)) / 2
-        variance_loss = variance_loss_z1 + variance_loss_z2
-
-        # Covariance Loss
-        cov_z1 = (z1.T @ z1) / (z1.shape[0] - 1)
-        cov_z2 = (z2.T @ z2) / (z2.shape[0] - 1)
-        covariance_loss_z1 = self.off_diagonal(cov_z1).pow_(2).sum()
-        covariance_loss_z2 = self.off_diagonal(cov_z2).pow_(2).sum()
-        covariance_loss_z1 = covariance_loss_z1.div(self.args.num_features_expander)
-        covariance_loss_z2 = covariance_loss_z2.div(self.args.num_features_expander)
-        covariance_loss = covariance_loss_z1 + covariance_loss_z2
-
-        # Loss function is a weighted average of the loss terms
-        loss = (
-            self.args.invariance_coeff * invariance_loss
-            + self.args.variance_coeff * variance_loss
-            + self.args.covariance_coeff * covariance_loss
-        )
-
-        return {
-            'loss': loss,
-            'invariance_loss': invariance_loss,
-            'variance_loss': variance_loss,
-            'covariance_loss': covariance_loss
-        }
-
-    def off_diagonal(self, x):
-        n, m = x.shape
-        assert n == m
-        return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
-
-    def shared_step(self, batch, batch_idx):
+    def intra_video_step(self, batch, batch_idx):
         # x1, x2: batches of transform views
-        (x1, x2, _), _ = batch
+        (x1, x2) = batch
 
         # y1, y2: batches of representations
-        y1 = self(x1)
-        y2 = self(x2)
+        y1 = self.video_backbone(x1['video'])
+        y2 = self.video_backbone(x2['video'])
 
         # z1, z2: batches of embeddings
-        z1 = self.projector(y1)
-        z2 = self.projector(y2)
+        z1 = self.intra_video_projector(y1)
+        z2 = self.intra_video_projector(y2)
 
         return z1, z2
 
@@ -116,19 +89,29 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         dictionary structure making this function just a matter of unwrapping
         the dict and feeding it through the model/loss.
         """
-        z1, z2 = self.shared_step(batch, batch_idx)
-        vigreg_loss = self.vigreg_loss(z1, z2)
+        z1, z2 = self.intra_video_step(batch, batch_idx)
+        intra_video_loss = self.intra_video_loss(z1, z2)
+
+        
+        losses = {}
+
+        losses['loss'] = intra_video_loss['loss']
+        losses['invariance_loss'] = intra_video_loss['invariance_loss']
+        losses['variance_loss'] = intra_video_loss['variance_loss']
+        losses['covariance_loss'] = intra_video_loss['covariance_loss']
+
+        
 
         # log results
         self.log_dict(
             {
-                "train_loss": vigreg_loss['loss'],
-                "train_invariance_loss": vigreg_loss['invariance_loss'],
-                "train_variance_loss": vigreg_loss['variance_loss'],
-                "train_covariance_loss": vigreg_loss['covariance_loss'],
+                "train_loss": losses['loss'],
+                "train_invariance_loss": losses['invariance_loss'],
+                "train_variance_loss": losses['variance_loss'],
+                "train_covariance_loss": losses['covariance_loss'],
             }
         )
-        return vigreg_loss['loss']
+        return losses['loss']
 
     def validation_step(self, batch, batch_idx):
         """
@@ -136,19 +119,29 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         For this simple example it's mostly the same as the training loop
         but with a different metric name.
         """
-        z1, z2 = self.shared_step(batch, batch_idx)
-        vigreg_loss = self.vigreg_loss(z1, z2)
+        z1, z2 = self.intra_video_step(batch, batch_idx)
+        intra_video_loss = self.intra_video_loss(z1, z2)
+
+        
+        losses = {}
+
+        losses['loss'] = intra_video_loss['loss']
+        losses['invariance_loss'] = intra_video_loss['invariance_loss']
+        losses['variance_loss'] = intra_video_loss['variance_loss']
+        losses['covariance_loss'] = intra_video_loss['covariance_loss']
+
+        
 
         # log results
         self.log_dict(
             {
-                "val_loss": vigreg_loss['loss'],
-                "val_invariance_loss": vigreg_loss['invariance_loss'],
-                "val_variance_loss": vigreg_loss['variance_loss'],
-                "val_covariance_loss": vigreg_loss['covariance_loss'],
+                "train_loss": losses['loss'],
+                "train_invariance_loss": losses['invariance_loss'],
+                "train_variance_loss": losses['variance_loss'],
+                "train_covariance_loss": losses['covariance_loss'],
             }
         )
-        return vigreg_loss['loss']
+        return losses['loss']
 
     def configure_optimizers(self):
         """

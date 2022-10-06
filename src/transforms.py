@@ -46,15 +46,16 @@ class MultiModeTrainDataTransform:
         idx_prime = random.choice(chunk_ids)
 
         # Applying transforms
-        sample['video'] = (
-            self.video.transform(videos[idx]),
-            self.video.transform(videos[idx_prime])
-        )
-        sample['audio'] = (
-            self.audio.transform(audios[idx]),
-            self.audio.transform(audios[idx_prime])
-        )
-        return sample
+        
+        sample_prime = sample
+
+        sample['video'] = self.video.transform(videos[idx])
+        sample['audio'] = self.audio.transform(audios[idx])
+
+        sample_prime['video'] = self.video.transform(videos[idx_prime])
+        sample_prime['audio'] = self.audio.transform(audios[idx_prime])
+        
+        return sample, sample_prime
 
 
 class VideoTrainDataTransform:

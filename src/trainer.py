@@ -2,8 +2,9 @@ import argparse
 
 import pytorch_lightning
 
-from pytorch_lightning import  Trainer
+from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+
 from pl_bolts.callbacks.ssl_online import SSLOnlineEvaluator
 
 from datamodule import KineticsDataModule
@@ -23,7 +24,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path",default="./data/kinetics400small/", type=str)
+    parser.add_argument("--data_path", default="./data/kinetics400small/", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
@@ -92,7 +93,7 @@ def train(args):
         monitor="train_loss"
     )
     callbacks.append(model_checkpoint)
-    
+
     # Callback online evaluator
     online_evaluator = None
     if args.online_ft:
@@ -104,7 +105,6 @@ def train(args):
             dataset=args.dataset,
         )
         callbacks.append(online_evaluator)
-    
 
     trainer = Trainer(
         max_epochs=args.max_epochs,
