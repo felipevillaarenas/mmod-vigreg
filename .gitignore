@@ -133,3 +133,9 @@ data/
 
 # logs
 *logs/
+
+# vscode
+.vscode/
+vscode/
+*vscode/
+.vscode/settings.json
