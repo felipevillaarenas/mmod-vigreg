@@ -70,6 +70,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
     def init_projector(self, representations_dim, projector_dims):
         """
         Creates projection head.
+
+        Args:
+            representations_dim (int): latent dimension.
+            projector_dims (str): Dimension projection head.
         """
         mlp_spec = f"{representations_dim}-{projector_dims}"
         layers = []
@@ -88,6 +92,12 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         return (self.video_backbone(x['video']), self.audio_backbone(x['audio']))
 
     def share_step(self, batch, batch_idx):
+        """
+        Calculates total, intra modality and cross modality losses.
+
+        Returns:
+            dict: Summary of losses.
+        """
         intra_video_loss, video_reps = self.intra_video_step(batch['video'])
         intra_audio_loss, audio_reps = self.intra_audio_step(batch['audio'])
 
@@ -111,9 +121,22 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             'cross_video_audio_loss': cross_video_audio_loss
         }
 
-    def intra_video_step(self, batch):
+    def intra_video_step(self, samples):
+        """
+        Calculates the video representations of clips from the same video.
+        Such representations are expanded using and projection head. Finally,
+        the variance, invariance and covariance loss is calculated.
+
+        Args:
+            samples (tuple): Random video clips from the same video. 
+
+        Returns:
+            tuple containing:
+                - intra_video_loss: VICReg Loss for video intra modality.
+                - (video_rep1, video_rep2): Video representations for clip1 and clip2.
+        """
         # video: batches of transform views
-        video1, video2 = batch
+        video1, video2 = samples
 
         # video: batches of representations
         video_rep1 = self.video_backbone(video1)
@@ -127,9 +150,22 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         intra_video_loss = self.loss(video_emb1, video_emb2)
         return intra_video_loss, (video_rep1, video_rep2)
 
-    def intra_audio_step(self, batch):
+    def intra_audio_step(self, samples):
+        """
+        Calculates the audio representations of clips from the same audio.
+        Such representations are expanded using and projection head. Finally,
+        the variance, invariance and covariance loss is calculated.
+
+        Args:
+            samples (tuple): Random audio clips from the same audio.
+
+        Returns:
+            tuple containing:
+                - intra_audio_loss: VICReg Loss for audio intra modality.
+                - (audio_rep1, audio_rep2): Audio representations for clip1 and clip2.
+        """
         # audio: batches of transform views
-        audio1, audio2 = batch
+        audio1, audio2 = samples
 
         # audio: batches of representations
         audio_rep1 = self.audio_backbone(audio1)
@@ -144,6 +180,17 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         return intra_audio_loss, (audio_rep1, audio_rep2)
     
     def cross_video_audio_step(self, video_rep, audio_rep):
+        """
+        Project video and audio using and projection head to calculate
+        intra modality VICReg loss.
+
+        Args:
+            video_rep (tensor): Video representation.
+            audio_rep (tensor): Audio representation.
+
+        Returns:
+            cross_video_audio_loss: VICReg Loss for video-audio cross modality.
+        """
         # loss intra audio modality
         cross_video_audio_emb = self.cross_video_to_audio_projector(video_rep)
         cross_audio_video_emb = self.cross_audio_to_video_projector(audio_rep)
@@ -174,10 +221,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         # log results
         self.log_dict(
             {
-                "train_loss": losses['loss'],
-                "train_intra_video_loss": losses['intra_video_loss'],
-                "train_intra_audio_loss": losses['intra_audio_loss'],
-                "train_cross_video_audio_loss": losses['cross_video_audio_loss'],
+                "train/loss": losses['loss'],
+                "train/intra_video_loss": losses['intra_video_loss'],
+                "train/intra_audio_loss": losses['intra_audio_loss'],
+                "train/cross_video_audio_loss": losses['cross_video_audio_loss'],
             }
         )
         return losses['loss']
@@ -193,10 +240,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         # log results
         self.log_dict(
             {
-                "train_loss": losses['loss'],
-                "train_intra_video_loss": losses['intra_video_loss'],
-                "train_intra_audio_loss": losses['intra_audio_loss'],
-                "train_cross_video_audio_loss": losses['cross_video_audio_loss'],
+                "val/loss": losses['loss'],
+                "val/intra_video_loss": losses['intra_video_loss'],
+                "val/intra_audio_loss": losses['intra_audio_loss'],
+                "val/cross_video_audio_loss": losses['cross_video_audio_loss'],
             }
         )
         return losses['loss']
