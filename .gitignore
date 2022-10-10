@@ -139,3 +139,4 @@ data/
 vscode/
 *vscode/
 .vscode/settings.json
+*settings.json
