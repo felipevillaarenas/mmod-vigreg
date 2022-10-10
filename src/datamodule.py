@@ -2,7 +2,6 @@ import itertools
 import os
 
 import pytorch_lightning
-import torchvision
 import pytorchvideo.data
 import torch
 
@@ -22,18 +21,17 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
     def __init__(self, args):
         self.args = args
         super().__init__()
-
-    def prepare_data(self):
         """
-        Data Download.
+        def prepare_data(self):
+        
+            Data Download.
+            torchvision.datasets.Kinetics(
+                self.data_dir, split="val",
+                num_classes=self.num_classes,
+                download=True
+            )
         """
-        torchvision.datasets.Kinetics(
-            self.data_dir, split="val",
-            num_classes=self.num_classes,
-            download=True
-        )
-        pass
-
+        
     def train_dataloader(self):
         """
         Defines the train DataLoader that the PyTorch Lightning Trainer 

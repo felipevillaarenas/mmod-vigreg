@@ -5,8 +5,6 @@ import pytorch_lightning
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from pl_bolts.callbacks.ssl_online import SSLOnlineEvaluator
-
 from datamodule import KineticsDataModule
 from model import MultiModVICRegModule
 
@@ -28,9 +26,9 @@ def main():
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
-    parser.add_argument("--batch_size", default=32, type=int)
+    parser.add_argument("--batch_size", default=1, type=int)
     parser.add_argument("--subsample_clip_duration", default=1, type=float)
-    parser.add_argument("--total_clip_duration", default=10, type=float)
+    parser.add_argument("--total_clip_duration", default=2, type=float)
     parser.add_argument("--video_num_subsampled", default=16, type=int)
     parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
     parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
@@ -46,6 +44,13 @@ def main():
     parser.add_argument("--audio_mel_num_subsample", default=128, type=int)
     parser.add_argument("--audio_logmel_mean", default=-7.03, type=float)
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
+
+    # Representations and Projections
+    parser.add_argument("--video_representations_dim", default=2048, type=int)
+    parser.add_argument("--audio_representations_dim", default=2048, type=int)
+    parser.add_argument("--intra_video_projector", default="4096", type=str)
+    parser.add_argument("--intra_audio_projector", default="4096", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="256", type=str)
 
     # Optim params
     parser.add_argument("--optimizer", default="lars", type=str)
@@ -80,6 +85,19 @@ def train(args):
     model = MultiModVICRegModule(args)
     dm = KineticsDataModule(args)
 
+    # Distributed params
+    args.num_samples = dm.train_dataloader().dataset.dataset.num_videos
+    if args.devices > 0:
+        args.global_batch_size = args.nodes * args.devices * args.batch_size
+        args.train_iters_per_epoch = args.num_samples // args.global_batch_size
+    else:
+        args.batch_size
+        args.train_iters_per_epoch = args.num_samples // args.global_batch_size
+
+    # Scheduler params
+    args.warmup_steps = args.warmup_epochs * args.train_iters_per_epoch
+    args.total_steps = args.max_epochs * args.train_iters_per_epoch
+
     callbacks = list()
 
     # Callback learning rate monitor
@@ -94,23 +112,11 @@ def train(args):
     )
     callbacks.append(model_checkpoint)
 
-    # Callback online evaluator
-    online_evaluator = None
-    if args.online_ft:
-        online_evaluator = SSLOnlineEvaluator(
-            drop_p=0.0,
-            hidden_dim=None,
-            z_dim=model.embedding_size,
-            num_classes=args.num_classes,
-            dataset=args.dataset,
-        )
-        callbacks.append(online_evaluator)
-
     trainer = Trainer(
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,
-        num_nodes=args.num_nodes,
+        num_nodes=args.nodes,
         strategy="ddp" if args.devices > 1 else None,
         sync_batchnorm=True if args.devices > 1 else False,
         precision=32 if args.fp32 else 16,
