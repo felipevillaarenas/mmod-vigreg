@@ -79,12 +79,7 @@ class VICRegLoss():
             + self.args.covariance_coeff * covariance_loss
         )
 
-        return {
-            'loss': loss,
-            'invariance_loss': invariance_loss,
-            'variance_loss': variance_loss,
-            'covariance_loss': covariance_loss
-        }
+        return loss
 
 
 

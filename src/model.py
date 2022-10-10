@@ -88,8 +88,32 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         return (self.video_backbone(x['video']), self.audio_backbone(x['audio']))
 
     def share_step(self, batch, batch_idx):
+        intra_video_loss, video_reps = self.intra_video_step(batch['video'])
+        intra_audio_loss, audio_reps = self.intra_audio_step(batch['audio'])
+
+        video_rep1, video_rep2 = video_reps
+        audio_rep1, audio_rep2 = audio_reps
+
+        cross_video_audio_loss = (
+            self.cross_video_audio_step(video_rep1, audio_rep1) +
+            self.cross_video_audio_step(video_rep2, audio_rep2)
+        )
+
+        loss = (
+            self.args.intra_coeff * intra_video_loss
+            + self.args.intra_coeff * intra_audio_loss
+            + self.args.cross_coeff * cross_video_audio_loss
+        )
+        return {
+            'loss': loss,
+            'intra_video_loss': intra_video_loss,
+            'intra_audio_loss': intra_audio_loss,
+            'cross_video_audio_loss': cross_video_audio_loss
+        }
+
+    def intra_video_step(self, batch):
         # video: batches of transform views
-        video1, video2 = batch['video']
+        video1, video2 = batch
 
         # video: batches of representations
         video_rep1 = self.video_backbone(video1)
@@ -101,13 +125,15 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
 
         # loss intra video modality
         intra_video_loss = self.loss(video_emb1, video_emb2)
+        return intra_video_loss, (video_rep1, video_rep2)
 
+    def intra_audio_step(self, batch):
         # audio: batches of transform views
-        audio1, audio2 = batch['audio']
+        audio1, audio2 = batch
 
         # audio: batches of representations
-        audio_rep1 = self.video_backbone(audio1)
-        audio_rep2 = self.video_backbone(audio2)
+        audio_rep1 = self.audio_backbone(audio1)
+        audio_rep2 = self.audio_backbone(audio2)
 
         # audio: batches of embeddings
         audio_emb1 = self.intra_audio_projector(audio_rep1)
@@ -115,49 +141,13 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
 
         # loss intra audio modality
         intra_audio_loss = self.loss(audio_emb1, audio_emb2)
-
-        # z1, z2: batches of embeddings
-        cross_video_audio_emb = self.cross_video_to_audio_projector(video_rep1)
-        cross_audio_video_emb = self.cross_audio_to_video_projector(audio_rep1)
-
+        return intra_audio_loss, (audio_rep1, audio_rep2)
+    
+    def cross_video_audio_step(self, video_rep, audio_rep):
         # loss intra audio modality
+        cross_video_audio_emb = self.cross_video_to_audio_projector(video_rep)
+        cross_audio_video_emb = self.cross_audio_to_video_projector(audio_rep)
         cross_video_audio_loss = self.loss(cross_video_audio_emb, cross_audio_video_emb)
-
-        return intra_video_loss, intra_audio_loss, cross_video_audio_loss
-
-    def intra_audio_step(self, batch, batch_idx):
-        # x1, x2: batches of transform views
-        x1, x2 = batch['audio']
-
-        # y1, y2: batches of representations
-        y1 = self.audio_backbone(x1)
-        y2 = self.audio_backbone(x2)
-
-        # z1, z2: batches of embeddings
-        z1 = self.intra_audio_projector(y1)
-        z2 = self.intra_audio_projector(y2)
-
-        # loss intra audio modality
-        intra_audio_loss = self.loss(z1, z2)
-
-        return intra_audio_loss
-
-    def cross_video_audio_step(self, batch, batch_idx):
-        # x1, x2: batches of transform views
-        x1, _ = batch['video']
-        x2, _ = batch['audio']
-
-        # y1, y2: batches of representations
-        y1 = self.video_backbone(x1)
-        y2 = self.audio_backbone(x2)
-
-        # z1, z2: batches of embeddings
-        z1 = self.intra_audio_projector(y1)
-        z2 = self.intra_audio_projector(y2)
-
-        # loss intra audio modality
-        cross_video_audio_loss = self.loss(z1, z2)
-
         return cross_video_audio_loss
 
     def training_step(self, batch, batch_idx):
@@ -179,23 +169,15 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         dictionary structure making this function just a matter of unwrapping
         the dict and feeding it through the model/loss.
         """
-        intra_video_loss = self.intra_video_step(batch, batch_idx)
-        intra_audio_loss = self.intra_audio_step(batch, batch_idx)
-
-        losses = {}
-
-        losses['loss'] = intra_video_loss['loss']
-        losses['invariance_loss'] = intra_video_loss['invariance_loss']
-        losses['variance_loss'] = intra_video_loss['variance_loss']
-        losses['covariance_loss'] = intra_video_loss['covariance_loss']
+        losses = self.share_step(batch, batch_idx)
 
         # log results
         self.log_dict(
             {
                 "train_loss": losses['loss'],
-                "train_invariance_loss": losses['invariance_loss'],
-                "train_variance_loss": losses['variance_loss'],
-                "train_covariance_loss": losses['covariance_loss'],
+                "train_intra_video_loss": losses['intra_video_loss'],
+                "train_intra_audio_loss": losses['intra_audio_loss'],
+                "train_cross_video_audio_loss": losses['cross_video_audio_loss'],
             }
         )
         return losses['loss']
@@ -206,23 +188,15 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         For this simple example it's mostly the same as the training loop
         but with a different metric name.
         """
-        z1, z2 = self.intra_video_step(batch, batch_idx)
-        intra_video_loss = self.loss(z1, z2)
-
-        losses = {}
-
-        losses['loss'] = intra_video_loss['loss']
-        losses['invariance_loss'] = intra_video_loss['invariance_loss']
-        losses['variance_loss'] = intra_video_loss['variance_loss']
-        losses['covariance_loss'] = intra_video_loss['covariance_loss']
+        losses = self.share_step(batch, batch_idx)
 
         # log results
         self.log_dict(
             {
                 "train_loss": losses['loss'],
-                "train_invariance_loss": losses['invariance_loss'],
-                "train_variance_loss": losses['variance_loss'],
-                "train_covariance_loss": losses['covariance_loss'],
+                "train_intra_video_loss": losses['intra_video_loss'],
+                "train_intra_audio_loss": losses['intra_audio_loss'],
+                "train_cross_video_audio_loss": losses['cross_video_audio_loss'],
             }
         )
         return losses['loss']

@@ -65,6 +65,8 @@ def main():
     parser.add_argument("--invariance-coeff", default=25.0, type=float)
     parser.add_argument("--variance-coeff", default=25.0, type=float)
     parser.add_argument("--covariance-coeff", default=1.0, type=float)
+    parser.add_argument("--intra_coeff", default=10.0, type=float)
+    parser.add_argument("--cross_coeff", default=1.0, type=float)
 
     # Trainer & Infrastructure
     parser.add_argument("--accelerator", default="auto", type=str)
