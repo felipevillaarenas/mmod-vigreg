@@ -124,7 +124,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
     def intra_video_step(self, samples):
         """
         Calculates the video representations of clips from the same video.
-        Such representations are expanded using and projection head. Finally,
+        Such representations are expanded using a projection head. Finally,
         the variance, invariance and covariance loss is calculated.
 
         Args:
@@ -153,7 +153,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
     def intra_audio_step(self, samples):
         """
         Calculates the audio representations of clips from the same audio.
-        Such representations are expanded using and projection head. Finally,
+        Such representations are expanded using a projection head. Finally,
         the variance, invariance and covariance loss is calculated.
 
         Args:
@@ -181,7 +181,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
     
     def cross_video_audio_step(self, video_rep, audio_rep):
         """
-        Project video and audio using and projection head to calculate
+        Project video and audio using a projection head to calculate
         intra modality VICReg loss.
 
         Args:

@@ -38,7 +38,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         trains/tests with.
         """
         sampler = RandomSampler
-        train_transform = MultiModeTrainDataTransform(self.args, mode="train")
+        train_transform = MultiModeTrainDataTransform(mode="train")
         self.train_dataset = LimitDataset(
             pytorchvideo.data.Kinetics(
                 data_path=os.path.join(self.args.data_path, "train"),
@@ -62,7 +62,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         trains/tests with.
         """
         sampler = RandomSampler
-        val_transform = MultiModeTrainDataTransform(self.args, mode="val")
+        val_transform = MultiModeTrainDataTransform(mode="val")
         self.val_dataset = pytorchvideo.data.Kinetics(
             data_path=os.path.join(self.args.data_path, "val"),
             clip_sampler=pytorchvideo.data.make_clip_sampler(

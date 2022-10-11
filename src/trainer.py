@@ -26,7 +26,7 @@ def main():
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
-    parser.add_argument("--batch_size", default=1, type=int)
+    parser.add_argument("--batch_size", default=2, type=int)
     parser.add_argument("--subsample_clip_duration", default=1, type=float)
     parser.add_argument("--total_clip_duration", default=2, type=float)
     parser.add_argument("--video_num_subsampled", default=16, type=int)
@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--intra_video_projector", default="4096", type=str)
     parser.add_argument("--intra_audio_projector", default="4096", type=str)
     parser.add_argument("--cross_video_to_audio_projector", default="256", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="256", type=str)
 
     # Optim params
     parser.add_argument("--optimizer", default="lars", type=str)
