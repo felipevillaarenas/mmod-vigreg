@@ -21,8 +21,16 @@ class VICRegLoss():
     This term decorrelates the variables of each embedding and prevents
     an inf contains.
     """
-    def __init__(self):
+    def __init__(
+        self,
+        invariance_coeff: float = 25.0,
+        variance_coeff: float = 25.0,
+        covariance_coeff: float = 1.0,
+    ):
         super().__init__()
+        self.invariance_coeff = invariance_coeff
+        self.variance_coeff = variance_coeff
+        self.covariance_coeff = covariance_coeff
 
     def off_diagonal(self, x):
         """
@@ -74,13 +82,10 @@ class VICRegLoss():
 
         # Loss function is a weighted average of the loss terms
         loss = (
-            self.args.invariance_coeff * invariance_loss
-            + self.args.variance_coeff * variance_loss
-            + self.args.covariance_coeff * covariance_loss
+            self.invariance_coeff * invariance_loss
+            + self.variance_coeff * variance_loss
+            + self.covariance_coeff * covariance_loss
         )
 
         return loss
-
-
-
 

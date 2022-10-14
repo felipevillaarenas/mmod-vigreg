@@ -1,13 +1,11 @@
 import itertools
-import os
 
 import pytorch_lightning
-import pytorchvideo.data
 import torch
 
-from torch.utils.data import RandomSampler
+import datasets
 
-from transforms import MultiModeTrainDataTransform
+from noiter.transforms_no_iter import MultiModeTrainDataTransform
 
 
 class KineticsDataModule(pytorch_lightning.LightningDataModule):
@@ -21,35 +19,19 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
     def __init__(self, args):
         self.args = args
         super().__init__()
-        """
-        def prepare_data(self):
-        
-            Data Download.
-            torchvision.datasets.Kinetics(
-                self.data_dir, split="val",
-                num_classes=self.num_classes,
-                download=True
-            )
-        """
         
     def train_dataloader(self):
         """
         Defines the train DataLoader that the PyTorch Lightning Trainer 
         trains/tests with.
         """
-        sampler = RandomSampler
         train_transform = MultiModeTrainDataTransform(self.args, mode="train")
-        self.train_dataset = LimitDataset(
-            pytorchvideo.data.Kinetics(
-                data_path=os.path.join(self.args.data_path, "train"),
-                clip_sampler=pytorchvideo.data.make_clip_sampler(
-                    "random", self.args.total_clip_duration
-                ),
-                video_path_prefix=self.args.video_path_prefix,
-                transform=train_transform,
-                video_sampler=sampler,
-            )
-        )
+        self.train_dataset = datasets.KineticsMultiMod(
+            root="./data/kinetics400small",
+            frames_per_clip=200,
+            transform=train_transform,
+            split="train")
+
         return torch.utils.data.DataLoader(
             self.train_dataset,
             batch_size=self.args.batch_size,
@@ -61,17 +43,13 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer 
         trains/tests with.
         """
-        sampler = RandomSampler 
         val_transform = MultiModeTrainDataTransform(self.args, mode="val")
-        self.val_dataset = pytorchvideo.data.Kinetics(
-            data_path=os.path.join(self.args.data_path, "val"),
-            clip_sampler=pytorchvideo.data.make_clip_sampler(
-                "uniform", self.args.total_clip_duration
-            ),
-            video_path_prefix=self.args.video_path_prefix,
+        self.val_dataset = datasets.KineticsMultiMod(
+            root="./data/kinetics400small",
+            frames_per_clip=200,
             transform=val_transform,
-            video_sampler=sampler,
-        )
+            split="val")
+
         return torch.utils.data.DataLoader(
             self.val_dataset,
             batch_size=self.args.batch_size,

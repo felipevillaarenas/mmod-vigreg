@@ -30,14 +30,22 @@ class MultiModeTrainDataTransform:
         self.audio = AudioTrainDataTransform(args, mode)
 
     def __call__(self, sample):
+        video_sample, audio_sample = sample
+
+        # Match dims video [T,C,H,W]->[C,T,H,W]
+        video_sample = video_sample.permute(1, 0, 2, 3)
+
+        # Match dims audio: [1,T]->[T]
+        audio_sample = torch.squeeze(audio_sample, 0)
+
         # Chunk number
         chunks = int(
             self.args.total_clip_duration / self.args.subsample_clip_duration
         )
 
         # Temporal Clips
-        videos = torch.chunk(sample['video'], chunks=chunks, dim=1)
-        audios = torch.chunk(sample['audio'], chunks=chunks, dim=0)
+        videos = torch.chunk(video_sample, chunks=chunks, dim=1)
+        audios = torch.chunk(audio_sample, chunks=chunks, dim=0)
 
         # Random clip idxs
         chunk_ids = [i for i in range(chunks)]
@@ -46,16 +54,16 @@ class MultiModeTrainDataTransform:
         idx_prime = random.choice(chunk_ids)
 
         # Applying transforms
-        sample['video'] = (
+        video1, video2 = (
             self.video.transform(videos[idx]),
             self.video.transform(videos[idx_prime])
         )
-        sample['audio'] = (
+        audio1, audio2 = (
             self.audio.transform(audios[idx]),
             self.audio.transform(audios[idx_prime])
             )
 
-        return sample
+        return (video1, video2), (audio1, audio2)
 
 
 class VideoTrainDataTransform:
@@ -120,13 +128,13 @@ class AudioTrainDataTransform:
                     n_mels=args.audio_num_mels,
                     center=False,
                 ),
-                Lambda(Clamp(min=1e-10)),  #lambda x: x.clamp(min=1e-10)),
+                Lambda(Clamp(min=1e-10)),
                 Lambda(torch.log),
                 UniformTemporalSubsample(
                     num_samples=args.audio_mel_num_subsample,
                     temporal_dim=1
                 ),
-                Lambda(AudioReshape()),  # lambda(lambda x: x.transpose(1, 0)),lambda x: x.view(1, x.size(0), 1, x.size(1))),
+                Lambda(AudioReshape()),
                 Normalize((args.audio_logmel_mean,), (args.audio_logmel_std,)),
             ]
         )
@@ -135,15 +143,12 @@ class AudioTrainDataTransform:
 class Clamp:
     def __init__(self, min: float):
         self.min = min
-        
+ 
     def __call__(self, x):
         return x.clamp(min=self.min)
 
 
 class AudioReshape:
-    def __init__(self):
-        self.min = 1e-10
-
     def __call__(self, x):
         x = x.transpose(1, 0)
         return x.view(1, x.size(0), 1, x.size(1))

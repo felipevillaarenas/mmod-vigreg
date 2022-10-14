@@ -26,9 +26,9 @@ def main():
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
-    parser.add_argument("--batch_size", default=2, type=int)
+    parser.add_argument("--batch_size", default=4, type=int)
     parser.add_argument("--subsample_clip_duration", default=1, type=float)
-    parser.add_argument("--total_clip_duration", default=2, type=float)
+    parser.add_argument("--total_clip_duration", default=10, type=float)
     parser.add_argument("--video_num_subsampled", default=16, type=int)
     parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
     parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
@@ -48,10 +48,10 @@ def main():
     # Representations and Projections
     parser.add_argument("--video_representations_dim", default=2048, type=int)
     parser.add_argument("--audio_representations_dim", default=2048, type=int)
-    parser.add_argument("--intra_video_projector", default="4096", type=str)
-    parser.add_argument("--intra_audio_projector", default="4096", type=str)
-    parser.add_argument("--cross_video_to_audio_projector", default="256", type=str)
-    parser.add_argument("--cross_audio_to_video_projector", default="256", type=str)
+    parser.add_argument("--intra_video_projector", default="4096-4096-4096", type=str)
+    parser.add_argument("--intra_audio_projector", default="4096-4096-4096", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="2048-1024-256", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="2048-1024-256", type=str)
 
     # Optim params
     parser.add_argument("--optimizer", default="lars", type=str)
@@ -89,7 +89,8 @@ def train(args):
     dm = KineticsDataModule(args)
 
     # Distributed params
-    args.num_samples = dm.train_dataloader().dataset.dataset.num_videos
+    args.num_samples = 100
+    # args.num_samples = dm.train_dataloader().dataset.dataset.num_videos
     if args.devices > 0:
         args.global_batch_size = args.nodes * args.devices * args.batch_size
         args.train_iters_per_epoch = args.num_samples // args.global_batch_size
@@ -130,5 +131,6 @@ def train(args):
 
 
 if __name__ == "__main__":
-    main()
     
+    main()
+

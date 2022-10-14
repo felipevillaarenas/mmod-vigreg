@@ -4,7 +4,8 @@ import torch.nn as nn
 
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
-from pytorchvideo.models.resnet import create_resnet, create_acoustic_resnet
+from pytorchvideo.models.resnet import create_acoustic_resnet
+from pytorchvideo.models.x3d import create_x3d
 
 from loss import VICRegLoss
 
@@ -45,16 +46,25 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         )
 
         # Init loss
-        self.loss = VICRegLoss()
+        self.loss = VICRegLoss(
+            args.invariance_coeff,
+            args.variance_coeff,
+            args.covariance_coeff,
+            )
         
     def init_video_backbone(self):
         """
-        Create video backbone.
+        Create video backbone and replace  the head linear projection
+        with a Identity function.
         """
-        video_backbone = create_resnet(
-                input_channel=3,
-                model_num_class=2048,
-            )
+        video_backbone = create_x3d(
+            input_channel=3,
+            input_clip_length=16,
+            input_crop_size=224,
+            head_activation=None
+        )
+        video_backbone._modules['blocks'][-1].dropout = nn.Identity()
+        video_backbone._modules['blocks'][-1].proj = nn.Identity()
         return video_backbone
 
     def init_audio_backbone(self):
@@ -63,8 +73,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         """
         audio_backbone = create_acoustic_resnet(
                 input_channel=1,
-                model_num_class=2048
             )
+        audio_backbone._modules['blocks'][-1].dropout = nn.Identity()
+        audio_backbone._modules['blocks'][-1].proj = nn.Identity()
         return audio_backbone
     
     def init_projector(self, representations_dim, projector_dims):
@@ -89,7 +100,8 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         """
         Forward defines the prediction/inference actions.
         """
-        return (self.video_backbone(x['video']), self.audio_backbone(x['audio']))
+        video, audio = x['video'], x['audio']
+        return (self.video_backbone(video), self.audio_backbone(audio))
 
     def share_step(self, batch, batch_idx):
         """
@@ -98,8 +110,11 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         Returns:
             dict: Summary of losses.
         """
-        intra_video_loss, video_reps = self.intra_video_step(batch['video'])
-        intra_audio_loss, audio_reps = self.intra_audio_step(batch['audio'])
+        # video, audio, _ = batch
+        video = batch['video']
+        audio = batch['audio']
+        intra_video_loss, video_reps = self.intra_video_step(video)
+        intra_audio_loss, audio_reps = self.intra_audio_step(audio)
 
         video_rep1, video_rep2 = video_reps
         audio_rep1, audio_rep2 = audio_reps
@@ -201,14 +216,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         """
         This function is called in the inner loop of the training epoch.
         It must return a loss that is used for loss.backwards() internally.
-        PyTorchVideo batches are dictionaries containing each modality
-        or metadata of the batch collated video clips. Kinetics contains
-        the following notable keys:
-           {
-               'video': <video_tensor>,
-               'audio': <audio_tensor>,
-               'label': <action_label>,
-           }
+        
+        batch: <video_tensor>, <audio_tensor>, <action_label>
+
         - "video" is a Tensor of shape (batch, channels, time, height, Width)
         - "audio" is a Tensor of shape (batch, channels, time, 1, frequency)
         - "label" is a Tensor of shape (batch, 1)
