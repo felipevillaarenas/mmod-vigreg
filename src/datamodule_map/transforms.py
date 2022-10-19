@@ -32,11 +32,13 @@ class MultiModeTrainDataTransform:
     def __call__(self, sample):
         video_sample, audio_sample = sample
 
-        # Match dims video [T,C,H,W]->[C,T,H,W]
+        # Match dims video [T,C,H,W]->[C,T,H,W] 
         video_sample = video_sample.permute(1, 0, 2, 3)
-
-        # Match dims audio: [1,T]->[T]
-        audio_sample = torch.squeeze(audio_sample, 0)
+        
+        # audio already [C,T] C can be Mono or Multi Stereo
+        stereo = audio_sample.shape[0]
+        if stereo == 1:
+            audio_sample = torch.cat([audio_sample, audio_sample], dim=0)
 
         # Chunk number
         chunks = int(
@@ -45,10 +47,10 @@ class MultiModeTrainDataTransform:
 
         # Temporal Clips
         videos = torch.chunk(video_sample, chunks=chunks, dim=1)
-        audios = torch.chunk(audio_sample, chunks=chunks, dim=0)
+        audios = torch.chunk(audio_sample, chunks=chunks, dim=1)
 
         # Random clip idxs
-        chunk_ids = [i for i in range(chunks)]
+        chunk_ids = [i for i in range(chunks-1)]
         idx = random.choice(chunk_ids)
         chunk_ids.remove(idx)
         idx_prime = random.choice(chunk_ids)
@@ -151,8 +153,7 @@ class Clamp:
 
 class AudioReshape:
     def __call__(self, x):
-        x = x.transpose(1, 0)
-        return x.view(1, 1, x.size(0), x.size(1))
+        return x.view(1, x.size(0), x.size(1), x.size(2))
 
 
 class Squeeze:

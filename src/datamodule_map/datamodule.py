@@ -27,8 +27,8 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         """
         train_transform = MultiModeTrainDataTransform(self.args, mode="train")
         self.train_dataset = datasets.KineticsMultiMod(
-            root="./data/kinetics400small",
-            frames_per_clip=200,
+            root="../content/",
+            frames_per_clip=300,
             transform=train_transform,
             split="train")
 
@@ -45,8 +45,8 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         """
         val_transform = MultiModeTrainDataTransform(self.args, mode="val")
         self.val_dataset = datasets.KineticsMultiMod(
-            root="./data/kinetics400small",
-            frames_per_clip=200,
+            root="../content/",
+            frames_per_clip=300,
             transform=val_transform,
             split="val")
 

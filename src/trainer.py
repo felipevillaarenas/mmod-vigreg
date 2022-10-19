@@ -5,7 +5,7 @@ import pytorch_lightning
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from datamodule_map.datamodule import KineticsDataModule
+from datamodule_iter.datamodule import KineticsDataModule
 from model import MultiModVICRegModule
 
 
@@ -22,7 +22,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path", default="./data/kinetics400small/", type=str)
+    parser.add_argument("--data_path", default="../content/", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
@@ -126,6 +126,7 @@ def train(args):
         sync_batchnorm=True if args.devices > 1 else False,
         precision=32 if args.fp32 else 16,
         callbacks=callbacks,
+        num_sanity_val_steps=0
     )
 
     trainer.fit(model, datamodule=dm)

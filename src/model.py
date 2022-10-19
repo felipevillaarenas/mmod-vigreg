@@ -116,9 +116,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         Returns:
             dict: Summary of losses.
         """
-        video, audio, _ = batch
-        #video = batch['video']
-        #audio = batch['audio']
+        #video, audio, _ = batch
+        video = batch['video']
+        audio = batch['audio']
         intra_video_loss, video_reps = self.intra_video_step(video)
         intra_audio_loss, audio_reps = self.intra_audio_step(audio)
 

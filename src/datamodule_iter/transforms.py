@@ -128,6 +128,7 @@ class AudioTrainDataTransform:
                 ),
                 Lambda(AudioReshape()),  # lambda(lambda x: x.transpose(1, 0)),lambda x: x.view(1, x.size(0), 1, x.size(1))),
                 Normalize((args.audio_logmel_mean,), (args.audio_logmel_std,)),
+                Lambda(Squeeze(dim=0)),
             ]
         )
 
@@ -145,5 +146,11 @@ class AudioReshape:
         self.min = 1e-10
 
     def __call__(self, x):
-        x = x.transpose(1, 0)
-        return x.view(1, x.size(0), 1, x.size(1))
+        return x.view(1, 1, x.size(1), x.size(0))
+
+class Squeeze:
+    def __init__(self, dim: int):
+        self.dim = dim
+
+    def __call__(self, x):
+        return x.squeeze(self.dim)
