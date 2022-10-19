@@ -4,8 +4,8 @@ import torch.nn as nn
 
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
-from pytorchvideo.models.resnet import create_acoustic_resnet
 from pytorchvideo.models.x3d import create_x3d
+from torchvision.models import resnet50
 
 from loss import VICRegLoss
 
@@ -71,11 +71,17 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         """
         Create audio backbone.
         """
-        audio_backbone = create_acoustic_resnet(
-                input_channel=1,
-            )
-        audio_backbone._modules['blocks'][-1].dropout = nn.Identity()
-        audio_backbone._modules['blocks'][-1].proj = nn.Identity()
+        audio_backbone = resnet50()
+        audio_backbone.conv1 = nn.Conv2d(
+            in_channels=1,
+            out_channels=64,
+            kernel_size=(7, 7),
+            stride=(2, 2),
+            padding=(3, 3),
+            bias=False
+        )
+
+        audio_backbone.fc = nn.Identity()
         return audio_backbone
     
     def init_projector(self, representations_dim, projector_dims):
@@ -110,9 +116,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         Returns:
             dict: Summary of losses.
         """
-        # video, audio, _ = batch
-        video = batch['video']
-        audio = batch['audio']
+        video, audio, _ = batch
+        #video = batch['video']
+        #audio = batch['audio']
         intra_video_loss, video_reps = self.intra_video_step(video)
         intra_audio_loss, audio_reps = self.intra_audio_step(audio)
 

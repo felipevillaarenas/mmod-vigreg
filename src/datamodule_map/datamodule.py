@@ -3,9 +3,9 @@ import itertools
 import pytorch_lightning
 import torch
 
-import datasets
+import datamodule_map.datasets as datasets
 
-from noiter.transforms_no_iter import MultiModeTrainDataTransform
+from datamodule_map.transforms import MultiModeTrainDataTransform
 
 
 class KineticsDataModule(pytorch_lightning.LightningDataModule):

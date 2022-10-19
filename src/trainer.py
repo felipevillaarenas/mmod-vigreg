@@ -5,7 +5,7 @@ import pytorch_lightning
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from datamodule import KineticsDataModule
+from datamodule_map.datamodule import KineticsDataModule
 from model import MultiModVICRegModule
 
 
@@ -48,17 +48,17 @@ def main():
     # Representations and Projections
     parser.add_argument("--video_representations_dim", default=2048, type=int)
     parser.add_argument("--audio_representations_dim", default=2048, type=int)
-    parser.add_argument("--intra_video_projector", default="4096-4096-4096", type=str)
-    parser.add_argument("--intra_audio_projector", default="4096-4096-4096", type=str)
-    parser.add_argument("--cross_video_to_audio_projector", default="2048-1024-256", type=str)
-    parser.add_argument("--cross_audio_to_video_projector", default="2048-1024-256", type=str)
+    parser.add_argument("--intra_video_projector", default="4096-4096", type=str)
+    parser.add_argument("--intra_audio_projector", default="4096-4096", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="1024-256", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="1024-256", type=str)
 
     # Optim params
     parser.add_argument("--optimizer", default="lars", type=str)
     parser.add_argument("--exclude_bn_bias", default=False, type=bool)
     parser.add_argument("--weight_decay", default=1e-4, type=float)
     parser.add_argument("--learning_rate", default=0.3, type=float)
-    parser.add_argument("--max_epochs", default=800, type=int)
+    parser.add_argument("--max_epochs", default=1, type=int)
     parser.add_argument("--fp32", default=False, type=bool)
     parser.add_argument("--warmup_epochs", default=10, type=int)
 
@@ -117,6 +117,7 @@ def train(args):
     callbacks.append(model_checkpoint)
 
     trainer = Trainer(
+        profiler="advanced",
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,

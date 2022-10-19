@@ -7,7 +7,7 @@ import torch
 
 from torch.utils.data import RandomSampler
 
-from transforms import MultiModeTrainDataTransform
+from datamodule_iter.transforms import MultiModeTrainDataTransform
 
 
 class KineticsDataModule(pytorch_lightning.LightningDataModule):
