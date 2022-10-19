@@ -112,12 +112,12 @@ def train(args):
     model_checkpoint = ModelCheckpoint(
         save_last=True,
         save_top_k=1,
-        monitor="train_loss"
+        monitor="train/loss"
     )
     callbacks.append(model_checkpoint)
 
     trainer = Trainer(
-        profiler="advanced",
+        profiler="simple",
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,
