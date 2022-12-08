@@ -7,7 +7,7 @@ import torch
 
 from torch.utils.data import RandomSampler
 
-from datamodule_iter.transforms import MultiModeTrainDataTransform
+from transforms import MultiModeTrainDataTransform
 
 
 class KineticsDataModule(pytorch_lightning.LightningDataModule):
@@ -43,7 +43,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             pytorchvideo.data.Kinetics(
                 data_path=os.path.join(self.args.data_path, "train"),
                 clip_sampler=pytorchvideo.data.make_clip_sampler(
-                    "random", self.args.total_clip_duration
+                    "random", 2 * self.args.clip_duration
                 ),
                 video_path_prefix=self.args.video_path_prefix,
                 transform=train_transform,
@@ -66,7 +66,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         self.val_dataset = pytorchvideo.data.Kinetics(
             data_path=os.path.join(self.args.data_path, "val"),
             clip_sampler=pytorchvideo.data.make_clip_sampler(
-                "uniform", self.args.total_clip_duration
+                "uniform", 2 * self.args.clip_duration
             ),
             video_path_prefix=self.args.video_path_prefix,
             transform=val_transform,

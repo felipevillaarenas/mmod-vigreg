@@ -5,7 +5,7 @@ import pytorch_lightning
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
-from datamodule_iter.datamodule import KineticsDataModule
+from datamodule import KineticsDataModule
 from model import MultiModVICRegModule
 
 
@@ -22,14 +22,13 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path", default="../content/", type=str)
+    parser.add_argument("--data_path", default="/Users/luisfelipevillaarenas/Documents/Artificial_Intelligence/projects/dataset_collection/kinetics400/k400/videos", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
     parser.add_argument("--batch_size", default=4, type=int)
-    parser.add_argument("--subsample_clip_duration", default=1, type=float)
-    parser.add_argument("--total_clip_duration", default=10, type=float)
-    parser.add_argument("--video_num_subsampled", default=16, type=int)
+    parser.add_argument("--clip_duration", default=2, type=float)
+    parser.add_argument("--video_num_subsampled", default=32, type=int) # 16 fps x clip_duration
     parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
     parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
     parser.add_argument("--video_crop_size", default=224, type=int)

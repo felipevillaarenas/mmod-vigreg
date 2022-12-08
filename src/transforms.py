@@ -30,20 +30,13 @@ class MultiModeTrainDataTransform:
         self.audio = AudioTrainDataTransform(args, mode)
 
     def __call__(self, sample):
-        # Chunk number
-        chunks = int(
-            self.args.total_clip_duration / self.args.subsample_clip_duration
-        )
 
         # Temporal Clips
-        videos = torch.chunk(sample['video'], chunks=chunks, dim=1)
-        audios = torch.chunk(sample['audio'], chunks=chunks, dim=0)
+        videos = torch.chunk(sample['video'], chunks=2, dim=1)
+        audios = torch.chunk(sample['audio'], chunks=2, dim=0)
 
         # Random clip idxs
-        chunk_ids = [i for i in range(chunks)]
-        idx = random.choice(chunk_ids)
-        chunk_ids.remove(idx)
-        idx_prime = random.choice(chunk_ids)
+        idx, idx_prime = (0, 1)
 
         # Applying transforms
         sample['video'] = (
