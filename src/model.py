@@ -1,11 +1,12 @@
 import pytorch_lightning
 import torch
 import torch.nn as nn
+import torchvision
 
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
-from pytorchvideo.models.x3d import create_x3d
-from torchvision.models import resnet50
+import pytorchvideo.models.r2plus1d as r2plus1d_model
+import pytorchvideo.models.x3d as x3d_model
 
 from loss import VICRegLoss
 
@@ -57,31 +58,42 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         Create video backbone and replace  the head linear projection
         with a Identity function.
         """
-        video_backbone = create_x3d(
-            input_channel=3,
-            input_clip_length=16,
-            input_crop_size=224,
-            head_activation=None
-        )
-        video_backbone._modules['blocks'][-1].dropout = nn.Identity()
-        video_backbone._modules['blocks'][-1].proj = nn.Identity()
+        if self.args.backbone_video == 'x3d':
+            
+            video_backbone = x3d_model.create_x3d(
+                input_channel=3,
+                input_clip_length=16,
+                input_crop_size=224,
+                head_activation=None
+            )
+            video_backbone._modules['blocks'][-1].dropout = nn.Identity()
+            video_backbone._modules['blocks'][-1].proj = nn.Identity()
+
+        elif self.args.backbone_video == 'r2plus1d':
+            video_backbone = r2plus1d_model.create_r2plus1d(
+                input_channel=3,
+            )
+            video_backbone._modules['blocks'][-1].proj = nn.Identity()
+            video_backbone._modules['blocks'][-1].activation = nn.Identity()
+            video_backbone._modules['blocks'][-1].output_pool = nn.Identity()
+
         return video_backbone
 
     def init_audio_backbone(self):
         """
         Create audio backbone.
         """
-        audio_backbone = resnet50()
-        audio_backbone.conv1 = nn.Conv2d(
-            in_channels=1,
-            out_channels=64,
-            kernel_size=(7, 7),
-            stride=(2, 2),
-            padding=(3, 3),
-            bias=False
-        )
-
-        audio_backbone.fc = nn.Identity()
+        if self.args.backbone_audio == 'resnet50':
+            audio_backbone = torchvision.models.resnet50()
+            audio_backbone.conv1 = nn.Conv2d(
+                in_channels=1,
+                out_channels=64,
+                kernel_size=(7, 7),
+                stride=(2, 2),
+                padding=(3, 3),
+                bias=False
+            )
+            audio_backbone.fc = nn.Identity()
         return audio_backbone
     
     def init_projector(self, representations_dim, projector_dims):
@@ -116,7 +128,6 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         Returns:
             dict: Summary of losses.
         """
-        #video, audio, _ = batch
         video = batch['video']
         audio = batch['audio']
         intra_video_loss, video_reps = self.intra_video_step(video)
@@ -129,7 +140,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             self.cross_video_audio_step(video_rep1, audio_rep1) +
             self.cross_video_audio_step(video_rep2, audio_rep2)
         )
-
+    
         loss = (
             self.args.intra_coeff * intra_video_loss
             + self.args.intra_coeff * intra_audio_loss
@@ -233,7 +244,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         the dict and feeding it through the model/loss.
         """
         losses = self.share_step(batch, batch_idx)
-
+        
         # log results
         self.log_dict(
             {
@@ -294,12 +305,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
                 linear_warmup_decay(
                     self.args.warmup_steps,
                     self.args.total_steps,
-                    cosine=True
-                ),
+                    cosine=True),
             ),
             "interval": "step",
             "frequency": 1,
         }
-
         return [optimizer], [scheduler]
-

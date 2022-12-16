@@ -5,6 +5,8 @@ import pytorch_lightning
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
+from pytorch_lightning.loggers import TensorBoardLogger
+
 from datamodule import KineticsDataModule
 from model import MultiModVICRegModule
 
@@ -44,6 +46,11 @@ def main():
     parser.add_argument("--audio_logmel_mean", default=-7.03, type=float)
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
 
+    # Backbone
+    
+    parser.add_argument("--backbone_video", default="x3d", type=str)
+    parser.add_argument("--backbone_audio", default="resnet50", type=str)
+
     # Representations and Projections
     parser.add_argument("--video_representations_dim", default=2048, type=int)
     parser.add_argument("--audio_representations_dim", default=2048, type=int)
@@ -57,25 +64,22 @@ def main():
     parser.add_argument("--exclude_bn_bias", default=False, type=bool)
     parser.add_argument("--weight_decay", default=1e-4, type=float)
     parser.add_argument("--learning_rate", default=0.3, type=float)
-    parser.add_argument("--max_epochs", default=1, type=int)
+    parser.add_argument("--max_epochs", default=4, type=int)
     parser.add_argument("--fp32", default=False, type=bool)
-    parser.add_argument("--warmup_epochs", default=10, type=int)
+    parser.add_argument("--warmup_epochs", default=1, type=int)
 
     # Loss
     parser.add_argument("--invariance-coeff", default=25.0, type=float)
     parser.add_argument("--variance-coeff", default=25.0, type=float)
     parser.add_argument("--covariance-coeff", default=1.0, type=float)
-    parser.add_argument("--intra_coeff", default=10.0, type=float)
-    parser.add_argument("--cross_coeff", default=1.0, type=float)
+    parser.add_argument("--intra_coeff", default=10, type=float)
+    parser.add_argument("--cross_coeff", default=0.5, type=float)
 
     # Trainer & Infrastructure
     parser.add_argument("--accelerator", default="auto", type=str)
     parser.add_argument("--devices", default=1, type=int)
     parser.add_argument("--workers", default=0, type=int)
     parser.add_argument("--nodes", default=1, type=int)
-
-    # Online eval
-    parser.add_argument("--online_ft", default=True, type=bool)
 
     # Build trainer, ResNet lightning-module and Kinetics data-module.
     args = parser.parse_args()
@@ -84,12 +88,10 @@ def main():
 
 
 def train(args):
-    model = MultiModVICRegModule(args)
     dm = KineticsDataModule(args)
 
     # Distributed params
-    args.num_samples = 100
-    # args.num_samples = dm.train_dataloader().dataset.dataset.num_videos
+    args.num_samples = dm.train_dataloader().dataset.num_videos
     if args.devices > 0:
         args.global_batch_size = args.nodes * args.devices * args.batch_size
         args.train_iters_per_epoch = args.num_samples // args.global_batch_size
@@ -100,6 +102,8 @@ def train(args):
     # Scheduler params
     args.warmup_steps = args.warmup_epochs * args.train_iters_per_epoch
     args.total_steps = args.max_epochs * args.train_iters_per_epoch
+
+    model = MultiModVICRegModule(args)
 
     callbacks = list()
 
@@ -113,10 +117,13 @@ def train(args):
         save_top_k=1,
         monitor="train/loss"
     )
+
     callbacks.append(model_checkpoint)
+    
+    # Logger
+    logger = TensorBoardLogger(save_dir='logs', name="mm-vicreg")
 
     trainer = Trainer(
-        profiler="simple",
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,
@@ -125,7 +132,9 @@ def train(args):
         sync_batchnorm=True if args.devices > 1 else False,
         precision=32 if args.fp32 else 16,
         callbacks=callbacks,
-        num_sanity_val_steps=0
+        num_sanity_val_steps=0,
+        logger=logger,
+        log_every_n_steps=1,
     )
 
     trainer.fit(model, datamodule=dm)
