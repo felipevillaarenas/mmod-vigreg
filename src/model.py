@@ -287,7 +287,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             optimizer = LARS(
                 params,
                 lr=self.args.learning_rate,
-                momentum=0.9,
+                momentum=self.args.momentum,
                 weight_decay=self.args.weight_decay,
                 trust_coefficient=0.001,
             )

@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
-    parser.add_argument("--batch_size", default=4, type=int)
+    parser.add_argument("--batch_size", default=8, type=int)
     parser.add_argument("--clip_duration", default=2, type=float)
     parser.add_argument("--video_num_subsampled", default=16, type=int)
     parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
@@ -53,19 +53,20 @@ def main():
     # Representations and Projections
     parser.add_argument("--video_representations_dim", default=2048, type=int)
     parser.add_argument("--audio_representations_dim", default=2048, type=int)
-    parser.add_argument("--intra_video_projector", default="4096-4096", type=str)
-    parser.add_argument("--intra_audio_projector", default="4096-4096", type=str)
-    parser.add_argument("--cross_video_to_audio_projector", default="1024-256", type=str)
-    parser.add_argument("--cross_audio_to_video_projector", default="1024-256", type=str)
+    parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
+    parser.add_argument("--intra_audio_projector", default="8192-8192-8192", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="2048-1024-521", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="2048-1024-521", type=str)
 
     # Optim params
     parser.add_argument("--optimizer", default="lars", type=str)
     parser.add_argument("--exclude_bn_bias", default=False, type=bool)
-    parser.add_argument("--weight_decay", default=1e-4, type=float)
-    parser.add_argument("--learning_rate", default=0.3, type=float)
-    parser.add_argument("--max_epochs", default=4, type=int)
+    parser.add_argument("--weight_decay", default=5e-5, type=float)
+    parser.add_argument("--momentum", default=0.9, type=float)
+    parser.add_argument("--learning_rate", default=1.6, type=float)
+    parser.add_argument("--max_epochs", default=256, type=int)
     parser.add_argument("--fp32", default=False, type=bool)
-    parser.add_argument("--warmup_epochs", default=1, type=int)
+    parser.add_argument("--warmup_epochs", default=25, type=int)
 
     # Loss
     parser.add_argument("--invariance-coeff", default=25.0, type=float)
@@ -133,7 +134,6 @@ def train(args):
         callbacks=callbacks,
         num_sanity_val_steps=0,
         logger=logger,
-        log_every_n_steps=1,
     )
 
     trainer.fit(model, datamodule=dm)
