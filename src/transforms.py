@@ -1,5 +1,3 @@
-import random
-
 import torch
 
 from pytorchvideo.transforms import (
@@ -113,13 +111,13 @@ class AudioTrainDataTransform:
                     n_mels=args.audio_num_mels,
                     center=False,
                 ),
-                Lambda(Clamp(min=1e-10)),  #lambda x: x.clamp(min=1e-10)),
+                Lambda(Clamp(min=1e-10)),
                 Lambda(torch.log),
                 UniformTemporalSubsample(
                     num_samples=args.audio_mel_num_subsample,
                     temporal_dim=1
                 ),
-                Lambda(AudioReshape()),  # lambda(lambda x: x.transpose(1, 0)),lambda x: x.view(1, x.size(0), 1, x.size(1))),
+                Lambda(AudioReshape()),
                 Normalize((args.audio_logmel_mean,), (args.audio_logmel_std,)),
                 Lambda(Squeeze(dim=0)),
             ]
@@ -129,7 +127,7 @@ class AudioTrainDataTransform:
 class Clamp:
     def __init__(self, min: float):
         self.min = min
-        
+
     def __call__(self, x):
         return x.clamp(min=self.min)
 
@@ -140,6 +138,7 @@ class AudioReshape:
 
     def __call__(self, x):
         return x.view(1, 1, x.size(1), x.size(0))
+
 
 class Squeeze:
     def __init__(self, dim: int):

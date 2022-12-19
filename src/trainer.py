@@ -24,7 +24,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path", default="/Users/luisfelipevillaarenas/Documents/Artificial_Intelligence/projects/dataset_collection/kinetics400/k400/videos", type=str)
+    parser.add_argument("--data_path", default="../../dataset_collection/kinetics400/k400/videos", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
@@ -47,7 +47,6 @@ def main():
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
 
     # Backbone
-    
     parser.add_argument("--backbone_video", default="x3d", type=str)
     parser.add_argument("--backbone_audio", default="resnet50", type=str)
 
@@ -119,7 +118,7 @@ def train(args):
     )
 
     callbacks.append(model_checkpoint)
-    
+
     # Logger
     logger = TensorBoardLogger(save_dir='logs', name="mm-vicreg")
 
@@ -141,6 +140,5 @@ def train(args):
 
 
 if __name__ == "__main__":
-    
-    main()
 
+    main()

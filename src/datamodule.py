@@ -21,20 +21,10 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
     def __init__(self, args):
         self.args = args
         super().__init__()
-        """
-        def prepare_data(self):
-        
-            Data Download.
-            torchvision.datasets.Kinetics(
-                self.data_dir, split="val",
-                num_classes=self.num_classes,
-                download=True
-            )
-        """
-        
+
     def train_dataloader(self):
         """
-        Defines the train DataLoader that the PyTorch Lightning Trainer 
+        Defines the train DataLoader that the PyTorch Lightning Trainer
         trains/tests with.
         """
         sampler = RandomSampler
@@ -48,7 +38,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
                 transform=train_transform,
                 video_sampler=sampler,
         )
-        
+
         return torch.utils.data.DataLoader(
             self.train_dataset,
             batch_size=self.args.batch_size,
@@ -58,7 +48,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
 
     def val_dataloader(self):
         """
-        Defines the train DataLoader that the PyTorch Lightning Trainer 
+        Defines the train DataLoader that the PyTorch Lightning Trainer
         trains/tests with.
         """
         sampler = RandomSampler
