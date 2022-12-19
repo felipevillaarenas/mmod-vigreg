@@ -30,7 +30,7 @@ def main():
     # Data Transforms
     parser.add_argument("--batch_size", default=4, type=int)
     parser.add_argument("--clip_duration", default=2, type=float)
-    parser.add_argument("--video_num_subsampled", default=32, type=int) # 16 fps x clip_duration
+    parser.add_argument("--video_num_subsampled", default=16, type=int)
     parser.add_argument("--video_means", default=(0.45, 0.45, 0.45), type=tuple)
     parser.add_argument("--video_stds", default=(0.225, 0.225, 0.225), type=tuple)
     parser.add_argument("--video_crop_size", default=224, type=int)
@@ -72,7 +72,7 @@ def main():
     parser.add_argument("--invariance-coeff", default=25.0, type=float)
     parser.add_argument("--variance-coeff", default=25.0, type=float)
     parser.add_argument("--covariance-coeff", default=1.0, type=float)
-    parser.add_argument("--intra_coeff", default=10, type=float)
+    parser.add_argument("--intra_coeff", default=5, type=float)
     parser.add_argument("--cross_coeff", default=0.5, type=float)
 
     # Trainer & Infrastructure
@@ -115,7 +115,7 @@ def train(args):
     model_checkpoint = ModelCheckpoint(
         save_last=True,
         save_top_k=1,
-        monitor="train/loss"
+        monitor="val/loss"
     )
 
     callbacks.append(model_checkpoint)
