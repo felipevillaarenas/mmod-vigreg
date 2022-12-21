@@ -1,11 +1,10 @@
-import itertools
 import os
 
 import pytorch_lightning
 import pytorchvideo.data
 import torch
 
-from torch.utils.data import RandomSampler
+from torch.utils.data import RandomSampler, DistributedSampler
 
 from transforms import MultiModeTrainDataTransform
 
@@ -27,7 +26,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer
         trains/tests with.
         """
-        sampler = RandomSampler
+        sampler = DistributedSampler if self.trainer.use_ddp else RandomSampler
         train_transform = MultiModeTrainDataTransform(self.args, mode="train")
         self.train_dataset = pytorchvideo.data.Kinetics(
                 data_path=os.path.join(self.args.data_path, "train"),
@@ -43,7 +42,6 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             self.train_dataset,
             batch_size=self.args.batch_size,
             num_workers=self.args.workers,
-            drop_last=True
             )
 
     def val_dataloader(self):
@@ -51,7 +49,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer
         trains/tests with.
         """
-        sampler = RandomSampler
+        sampler = DistributedSampler if self.trainer.use_ddp else RandomSampler
         val_transform = MultiModeTrainDataTransform(self.args, mode="val")
         self.val_dataset = pytorchvideo.data.Kinetics(
             data_path=os.path.join(self.args.data_path, "val"),
@@ -66,27 +64,4 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
             self.val_dataset,
             batch_size=self.args.batch_size,
             num_workers=self.args.workers,
-            drop_last=True
         )
-
-
-class LimitDataset(torch.utils.data.Dataset):
-    """
-    To ensure a constant number of samples are retrieved from the database
-    we use this LimitDataset wrapper. This is necessary because several
-    of the underlying videos may be corrupted while fetching or decoding,
-    however, we always want the same number of steps per epoch.
-    """
-
-    def __init__(self, dataset):
-        super().__init__()
-        self.dataset = dataset
-        self.dataset_iter = itertools.chain.from_iterable(
-            itertools.repeat(iter(dataset), 2)
-        )
-
-    def __getitem__(self, index):
-        return next(self.dataset_iter)
-
-    def __len__(self):
-        return self.dataset.num_videos

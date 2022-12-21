@@ -234,11 +234,14 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         This function is called in the inner loop of the training epoch.
         It must return a loss that is used for loss.backwards() internally.
 
-        batch: <video_tensor>, <audio_tensor>, <action_label>
+        batch: {
+            "video":[<video_tensor>, <video_tensor_prime>],
+            "audio": [<audio_tensor>, <audio_tensor_prime>]
+        }
 
         - "video" is a Tensor of shape (batch, channels, time, height, Width)
         - "audio" is a Tensor of shape (batch, channels, time, 1, frequency)
-        - "label" is a Tensor of shape (batch, 1)
+        
         The PyTorchVideo models and transforms expect the same input shapes and
         dictionary structure making this function just a matter of unwrapping
         the dict and feeding it through the model/loss.

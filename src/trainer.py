@@ -13,18 +13,14 @@ from model import MultiModVICRegModule
 
 def main():
     """
-    To train the ResNet with the Kinetics dataset we construct the two modules
-    above, and pass them to the fit function of a pytorch_lightning.Trainer.
-    This example can be run either locally (with default parameters) or on
-    a Slurm cluster. To run on a Slurm cluster provide the --on_cluster
-    argument.
+    To train the Multi-Mode VICReg with the Kinetics dataset. 
     """
 
     pytorch_lightning.trainer.seed_everything()
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path", default="../../dataset_collection/kinetics400/k400/videos", type=str)
+    parser.add_argument("--data_path", default="/kinetics400/videos", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
@@ -77,9 +73,9 @@ def main():
 
     # Trainer & Infrastructure
     parser.add_argument("--accelerator", default="auto", type=str)
-    parser.add_argument("--devices", default=1, type=int)
-    parser.add_argument("--workers", default=0, type=int)
-    parser.add_argument("--nodes", default=1, type=int)
+    parser.add_argument("--devices", default=4, type=int)
+    parser.add_argument("--workers", default=16, type=int)
+    parser.add_argument("--nodes", default=2, type=int)
 
     # Build trainer, ResNet lightning-module and Kinetics data-module.
     args = parser.parse_args()
@@ -121,7 +117,7 @@ def train(args):
     callbacks.append(model_checkpoint)
 
     # Logger
-    logger = TensorBoardLogger(save_dir='logs', name="mm-vicreg")
+    logger = TensorBoardLogger(save_dir='./logs', name="mm-vicreg")
 
     trainer = Trainer(
         max_epochs=args.max_epochs,
@@ -132,7 +128,7 @@ def train(args):
         sync_batchnorm=True if args.devices > 1 else False,
         precision=32 if args.fp32 else 16,
         callbacks=callbacks,
-        num_sanity_val_steps=0,
+        num_sanity_val_steps=1,
         logger=logger,
     )
 
