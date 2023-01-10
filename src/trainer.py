@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path", default="/kinetics400/videos", type=str)
+    parser.add_argument("--data_path", default="../dataset_collection/kinetics400/k400/videos", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
@@ -43,16 +43,14 @@ def main():
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
 
     # Backbone
-    parser.add_argument("--backbone_video", default="x3d", type=str)
-    parser.add_argument("--backbone_audio", default="resnet50", type=str)
+    parser.add_argument("--backbone_video", default="r2plus1d18", type=str)
+    parser.add_argument("--backbone_audio", default="resnet18", type=str)
 
     # Representations and Projections
-    parser.add_argument("--video_representations_dim", default=2048, type=int)
-    parser.add_argument("--audio_representations_dim", default=2048, type=int)
-    parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
-    parser.add_argument("--intra_audio_projector", default="8192-8192-8192", type=str)
-    parser.add_argument("--cross_video_to_audio_projector", default="2048-1024-521", type=str)
-    parser.add_argument("--cross_audio_to_video_projector", default="2048-1024-521", type=str)
+    parser.add_argument("--intra_video_projector", default="4096-4096-4096", type=str)
+    parser.add_argument("--intra_audio_projector", default="4096-4096-4096", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="256-128", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="256-128", type=str)
 
     # Optim params
     parser.add_argument("--optimizer", default="lars", type=str)

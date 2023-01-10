@@ -26,7 +26,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer
         trains/tests with.
         """
-        sampler = DistributedSampler if self.trainer.use_ddp else RandomSampler
+        sampler = RandomSampler
         train_transform = MultiModeTrainDataTransform(self.args, mode="train")
         self.train_dataset = pytorchvideo.data.Kinetics(
                 data_path=os.path.join(self.args.data_path, "train"),
@@ -49,7 +49,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         Defines the train DataLoader that the PyTorch Lightning Trainer
         trains/tests with.
         """
-        sampler = DistributedSampler if self.trainer.use_ddp else RandomSampler
+        sampler = RandomSampler
         val_transform = MultiModeTrainDataTransform(self.args, mode="val")
         self.val_dataset = pytorchvideo.data.Kinetics(
             data_path=os.path.join(self.args.data_path, "val"),

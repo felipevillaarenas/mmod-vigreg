@@ -69,13 +69,24 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             video_backbone._modules['blocks'][-1].dropout = nn.Identity()
             video_backbone._modules['blocks'][-1].proj = nn.Identity()
 
-        elif self.args.backbone_video == 'r2plus1d':
+            self.args.video_representations_dim = 2048
+
+        elif self.args.backbone_video == 'r2plus1d50':
             video_backbone = r2plus1d_model.create_r2plus1d(
                 input_channel=3,
+                model_depth=50
             )
             video_backbone._modules['blocks'][-1].proj = nn.Identity()
             video_backbone._modules['blocks'][-1].activation = nn.Identity()
             video_backbone._modules['blocks'][-1].output_pool = nn.Identity()
+
+            self.args.video_representations_dim = 2048
+        
+        elif self.args.backbone_video == 'r2plus1d18':
+            video_backbone = torchvision.models.video.r2plus1d_18()
+            video_backbone.fc = nn.Identity()
+
+            self.args.video_representations_dim = 512
 
         return video_backbone
 
@@ -94,6 +105,22 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
                 bias=False
             )
             audio_backbone.fc = nn.Identity()
+
+            self.args.audio_representations_dim = 2048
+
+        elif self.args.backbone_audio == 'resnet18':
+            audio_backbone = torchvision.models.resnet18()
+            audio_backbone.conv1 = nn.Conv2d(
+                in_channels=1,
+                out_channels=64,
+                kernel_size=(7, 7),
+                stride=(2, 2),
+                padding=(3, 3),
+                bias=False
+            )
+            audio_backbone.fc = nn.Identity()
+
+            self.args.audio_representations_dim = 512
         return audio_backbone
 
     def init_projector(self, representations_dim, projector_dims):
