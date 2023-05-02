@@ -30,25 +30,25 @@ def train(args):
     callbacks = [LearningRateMonitor(), ModelCheckpoint(dirpath="./logs", save_last=True)]
 
     # MLFlow Logger
-    run = Run.get_context()
-    mlflow_url = run.experiment.workspace.get_mlflow_tracking_uri() 
-    mlf_logger = MLFlowLogger(experiment_name=run.experiment.name, tracking_uri=mlflow_url)
-    mlf_logger._run_id = run.id
+    #run = Run.get_context()
+    #mlflow_url = run.experiment.workspace.get_mlflow_tracking_uri() 
+    #mlf_logger = MLFlowLogger(experiment_name=run.experiment.name, tracking_uri=mlflow_url)
+    #mlf_logger._run_id = run.id
 
     trainer = Trainer(
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        strategy='ddp',
-        plugins=MPIEnvironment(),
+        #strategy='ddp',
+        #plugins=MPIEnvironment(),
         precision=args.precision,
         gradient_clip_val=1.0,
         callbacks=callbacks,
         num_sanity_val_steps=0,
-        logger=mlf_logger,
-        sync_batchnorm=True,
-        use_distributed_sampler=False
+        #logger=mlf_logger,
+        #sync_batchnorm=True,
+        #use_distributed_sampler=False
     )
 
     dm = KineticsDataModule(args)

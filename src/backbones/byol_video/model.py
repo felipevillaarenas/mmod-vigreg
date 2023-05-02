@@ -7,6 +7,8 @@ import logging
 import torch
 import torch.nn as nn
 
+from pytorchvideo.models.resnet import create_resnet
+
 def load_pretrained_weights(model, args, strict=True):
     """
     Create video backbone and replace  the head linear projection
@@ -56,6 +58,13 @@ def load_pretrained_video_byol(args):
     Create video backbone and load pretrained weights
     """
     # Load Slow R50 model from torch Hub
-    video_backbone = torch.hub.load('facebookresearch/pytorchvideo', 'slow_r50', pretrained=False, force_reload=True)
+    video_backbone = create_resnet(
+        stem_conv_kernel_size=(1, 7, 7),
+        head_pool_kernel_size=(8, 7, 7),
+        model_depth=50
+    )
     video_backbone._modules['blocks'][-1].dropout = nn.Identity()
     video_backbone._modules['blocks'][-1].proj = nn.Identity()
+    load_pretrained_weights(video_backbone, args, strict=True)
+    return video_backbone
+
