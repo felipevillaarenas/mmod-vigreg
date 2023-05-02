@@ -1,0 +1,20 @@
+{
+    "backbone.s1.pathway0_stem": "blocks.0",
+    "backbone.s2.pathway0_res0": "blocks.1.res_blocks.0",
+    "backbone.s2.pathway0_res1": "blocks.1.res_blocks.1",
+    "backbone.s2.pathway0_res2": "blocks.1.res_blocks.2",
+    "backbone.s3.pathway0_res0": "blocks.2.res_blocks.0",
+    "backbone.s3.pathway0_res1": "blocks.2.res_blocks.1",
+    "backbone.s3.pathway0_res2": "blocks.2.res_blocks.2",
+    "backbone.s3.pathway0_res3": "blocks.2.res_blocks.3",
+    "backbone.s4.pathway0_res0": "blocks.3.res_blocks.0",
+    "backbone.s4.pathway0_res1": "blocks.3.res_blocks.1",
+    "backbone.s4.pathway0_res2": "blocks.3.res_blocks.2",
+    "backbone.s4.pathway0_res3": "blocks.3.res_blocks.3",
+    "backbone.s4.pathway0_res4": "blocks.3.res_blocks.4",
+    "backbone.s4.pathway0_res5": "blocks.3.res_blocks.5",
+    "backbone.s5.pathway0_res0": "blocks.4.res_blocks.0",
+    "backbone.s5.pathway0_res1": "blocks.4.res_blocks.1",
+    "backbone.s5.pathway0_res2": "blocks.4.res_blocks.2"
+
+}
