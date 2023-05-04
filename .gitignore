@@ -147,4 +147,4 @@ vscode/
 *.amlignore.amltmp
 
 # Mac
-#*.DS_Store
+*.DS_Store
