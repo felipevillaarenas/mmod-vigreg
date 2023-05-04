@@ -22,9 +22,16 @@ from torchvision.transforms import (
 
 
 class MultiModeTrainDataTransform:
-    """ Video Transforms for Multi Modal Self Supervised Learning."""
+    """
+    Video Transforms for Multi Modal Self Supervised Learning.
+    """
 
     def __init__(self, args, mode):
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+            mode (str): Define transformation mode (e.g. 'train', 'val').
+        """
 
         super().__init__()
         self.args = args
@@ -32,76 +39,154 @@ class MultiModeTrainDataTransform:
         self.audio = AudioTrainDataTransform(args, mode)
 
     def __call__(self, sample):
+        """
+        Obtain the transformed views for video and audio for self supervised learning.
+        
+        Temporal views of the same video are obtained by divided the original video 
+        in equally size chunks. The numbers of chunks are defined as the parameters
+        `temporal_distance`. The selected views used for traning will be those that 
+        are more further apart. Once each pair of views (audio and video) are selected,
+        each selected view is transformed individualy.
+
+        Args:
+            sample (dict):  A dictionary with the input video following format.
+            
+            .. code-block:: text
+                {
+                    'video': <video_tensor>,
+                    'audio': <audio>,
+                    'label': <index_label>,
+                    'video_label': <index_label>
+                    'video_index': <video_index>,
+                    'clip_index': <clip_index>,
+                    'aug_index': <aug_index>,
+                }
+
+        Returns:
+            dict: A dictionary with the video and audio paired views transformed following format.
+            
+            .. code-block:: text
+                {
+                    'video': (<video_1_tensor>, <video_2_tensor>),
+                    'audio': (<audio_1_tensor>, <audio_2_tensor>)
+                }
+        """
 
         # Clip idxs
         idx, idx_prime = (0, self.args.temporal_distance - 1)
         
-
-        # Temporal Clips
+        # Get video temporal clips
         try:
-            videos = torch.chunk(sample['video'], chunks=self.args.temporal_distance , dim=1)
+            videos = torch.chunk(sample['video'], 
+                                 chunks=self.args.temporal_distance,
+                                 dim=1)
+        except: 
+            videos = self.dummy_video_views()
             
-            sample['video'] = (
-                self.video.transform(videos[idx]),
-                self.video.transform(videos[idx_prime])
-            )
-
-        except:
-            print('empty video')
-            # Shape: (C, T, H, W)
-            channels = 3
-            video_empty = 255 * torch.rand(
-                [
-                    channels,
-                    int(self.args.clip_duration * self.args.video_num_subsampled),
-                    self.args.video_min_short_side_scale,
-                    self.args.video_min_short_side_scale
-                ]
-            )
-            videos = tuple()
-            for i in range(self.args.temporal_distance):
-                videos += (video_empty,)
-            sample['video'] = (
-                self.video.transform(videos[idx]),
-                self.video.transform(videos[idx_prime])
-            )
-
+        # Get audio temporal clips
         try:
-            audios = torch.chunk(sample['audio'], chunks=self.args.temporal_distance , dim=0)
-            sample['audio'] = (
-                self.audio.transform(audios[idx]),
-                self.audio.transform(audios[idx_prime])
-                )
+            audios = torch.chunk(sample['audio'],
+                                 chunks=self.args.temporal_distance,
+                                 dim=0
+                                 )
         except:
-            print('empty audio')
-            audio_empty = 0.1 * (torch.rand([self.args.audio_raw_sample_rate]) - 0.5)
-            audios = tuple()
-            for i in range(self.args.temporal_distance):
-                audios += (audio_empty,)
-            sample['audio'] = (
-                self.audio.transform(audios[idx]),
-                self.audio.transform(audios[idx_prime])
-                )     
-        return sample
+            audios = self.dummy_audio_views()
+
+        views = {}
+
+        # Apply video tranform to views
+        views['video'] = (
+            self.video.transform(videos[idx]),
+            self.video.transform(videos[idx_prime])
+        )
+        
+        # Apply audio tranform to views
+        views['audio'] = (
+            self.audio.transform(audios[idx]),
+            self.audio.transform(audios[idx_prime])
+            )     
+            
+        return views
+    
+    def dummy_video_views(self):
+        """
+        Creates two random tensors with Shape: (C, T, H, W),
+
+        Returns:
+            tuple: (<video_1_tensor>, <video_2_tensor>)
+        """
+        
+        channels = 3
+        video_empty = 255 * torch.rand(
+            [
+                channels,
+                int(self.args.clip_duration * self.args.video_num_subsampled),
+                self.args.video_min_short_side_scale,
+                self.args.video_min_short_side_scale
+            ]
+        )
+        videos = tuple()
+        for i in range(self.args.temporal_distance):
+            videos += (video_empty,)
+        return videos
+    
+    def dummy_audio_views(self):
+        """
+        Creates two random tensors for auddio,
+
+        Returns:
+            tuple: (<audio_1_tensor>, <audio_2_tensor>)
+        """
+        audio_empty = 0.1 * (torch.rand([self.args.clip_duration * self.args.audio_raw_sample_rate]) - 0.5)
+        audios = tuple()
+        for i in range(self.args.temporal_distance):
+            audios += (audio_empty,)
+        return audios
 
 
 class EvalDataTransform:
     """ Video Transforms for Fine Tuning and Linear Evaluation."""
 
     def __init__(self, args, mode):
-
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+            mode (str): Define transformation mode (e.g. 'train', 'val').
+        """
         super().__init__()
         self.args = args
         self.video = VideoTrainDataTransform(args, mode)
         self.audio = AudioTrainDataTransform(args, mode)
 
     def __call__(self, sample):
+        """Applies data transformation based on the data modality.
+        Additionally relace the key of the unused modality with None.
+
+        Args:
+            sample (dict):  A dictionary with the input video following format.
+            
+            .. code-block:: text
+                {
+                    'video': <video_tensor>,
+                    'audio': <audio>,
+                    'label': <index_label>,
+                    'video_label': <index_label>
+                    'video_index': <video_index>,
+                    'clip_index': <clip_index>,
+                    'aug_index': <aug_index>,
+                }
+
+        Returns:
+            dict: _description_
+        """
         # Applying transforms
         if self.args.eval_data_modality == 'video':
             sample['video'] = self.video.transform(sample['video'])
+            sample['audio'] = None
 
         elif self.args.eval_data_modality == 'audio':
             sample['audio'] = self.audio.transform(sample['audio'])
+            sample['video'] = None
 
         return sample
 
@@ -165,7 +250,11 @@ class AudioTrainDataTransform:
     """ Audio Transforms for Multi Modal Self Supervised Learning."""
 
     def __init__(self, args, mode):
-
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+            mode (str): Define transformation mode (e.g. 'train', 'val').
+        """
         super().__init__()
         self.args = args
         self.transform = Compose(
