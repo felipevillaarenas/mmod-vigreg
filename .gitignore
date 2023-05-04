@@ -134,9 +134,16 @@ data/
 # logs
 *logs/
 
+
+
 # vscode
 .vscode/
 vscode/
 *vscode/
 .vscode/settings.json
 *settings.json
+
+# Azure
+#/config/workspace.json
+#*.amlignore
+#*.amlignore.amltmp
