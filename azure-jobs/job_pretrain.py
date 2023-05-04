@@ -25,7 +25,7 @@ dataset_byolweights = Dataset.get_by_name(ws, name='byolweights')
 
 # training script
 prefix = Path(__file__).parent
-source_dir = str(prefix.joinpath('src'))
+source_dir = str(prefix.joinpath('../src'))
 script_name = 'trainer.py'
 
 # Number of GPUs per Node, Nodes and Workers per GPU

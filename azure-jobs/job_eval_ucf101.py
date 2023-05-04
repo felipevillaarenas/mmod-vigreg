@@ -19,7 +19,7 @@ compute_name = 'cluster-a100-8gpus-80g'
 compute_target = ComputeTarget(workspace=ws, name=compute_name)
 
 # Connect to experiment
-experiment_name = 'mmod-vicreg-linear-protocol-Kinetics400'
+experiment_name = 'mmod-vicreg-finetune-protocol-ucf101'
 exp = Experiment(workspace=ws, name=experiment_name)
 
 # Connect to curated enviroment
@@ -28,8 +28,8 @@ env = Environment.get(workspace=ws, name=enviroment_name)
 
 
 # Connecto to dataset
-dataset_name = 'ds_kinetics400'
-datastore_name = 'wsdatalake'
+dataset_name = 'ds_ucf101'
+datastore_name = 'wsdatalake_ucf101'
 datastore = ws.datastores[datastore_name]
 dataset = Dataset.get_by_name(ws, name=dataset_name)
 
@@ -41,7 +41,7 @@ checkpoint = Dataset.File.from_files(path=(artifacts_datastore, 'ExperimentRun/d
 prefix = Path(__file__).parent
 
 # training script
-source_dir = str(prefix.joinpath('src'))
+source_dir = str(prefix.joinpath('../src'))
 script_name = 'trainer.py'
 
 # Number of GPUs per Node
@@ -56,17 +56,17 @@ num_workers = 10
 args = ['--data_path', dataset.as_named_input(dataset_name).as_download(), 
         '--checkpoint_path', checkpoint.as_named_input('checkpoint').as_download(),
         '--stage', 'eval',
-        '--eval_protocol', 'linear',
+        '--eval_protocol', 'finetune',
         '--eval_data_modality', 'video',
-        '--eval_dataset', 'kinetics400',
-        '--eval_learning_rate', 4.0,
+        '--eval_dataset', 'ucf101',
+        '--eval_learning_rate', 0.2,
         '--eval_weight_decay', 0.0,
-        '--eval_dropout_p', 0.5,
-        '--eval_scheduler_type','cosine',
-        '--max_epochs', 60,
-        '--warmup_epochs', 8,
+        '--eval_dropout_p', 0.8,
+        '--eval_scheduler_type','step',
+        '--max_epochs', 200,
+        '--warmup_epochs', 0,
         '--accelerator', 'gpu',
-        '--batch_size', 256,
+        '--batch_size', 64,
         '--devices', devices,
         '--num_nodes', num_nodes,
         '--num_workers', num_workers]
