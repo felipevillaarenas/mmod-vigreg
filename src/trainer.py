@@ -30,25 +30,25 @@ def train(args):
     callbacks = [LearningRateMonitor(), ModelCheckpoint(dirpath="./logs", save_last=True)]
 
     # MLFlow Logger
-    #run = Run.get_context()
-    #mlflow_url = run.experiment.workspace.get_mlflow_tracking_uri() 
-    #mlf_logger = MLFlowLogger(experiment_name=run.experiment.name, tracking_uri=mlflow_url)
-    #mlf_logger._run_id = run.id
+    run = Run.get_context()
+    mlflow_url = run.experiment.workspace.get_mlflow_tracking_uri() 
+    mlf_logger = MLFlowLogger(experiment_name=run.experiment.name, tracking_uri=mlflow_url)
+    mlf_logger._run_id = run.id
 
     trainer = Trainer(
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        #strategy='ddp',
-        #plugins=MPIEnvironment(),
+        strategy='ddp',
+        plugins=MPIEnvironment(),
         precision=args.precision,
         gradient_clip_val=1.0,
         callbacks=callbacks,
         num_sanity_val_steps=0,
-        #logger=mlf_logger,
-        #sync_batchnorm=True,
-        #use_distributed_sampler=False
+        logger=mlf_logger,
+        sync_batchnorm=True,
+        use_distributed_sampler=False
     )
 
     dm = KineticsDataModule(args)
@@ -132,7 +132,7 @@ def main():
     parser = argparse.ArgumentParser()
 
     # Data Loader.
-    parser.add_argument("--data_path", default="/kinetics-400/videos", type=str)
+    parser.add_argument("--data_path", default="/home/azureuser/cloudfiles/code/fastrun", type=str)
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
@@ -151,11 +151,14 @@ def main():
     parser.add_argument("--video_color_strength", default=0.75, type=float)
     parser.add_argument("--audio_raw_sample_rate", default=44100, type=int)
     parser.add_argument("--audio_resampled_rate", default=16000, type=int)
-    parser.add_argument("--audio_mel_window_size", default=64, type=int)
-    parser.add_argument("--audio_mel_step_size", default=100, type=int)
-    parser.add_argument("--audio_num_mels", default=64, type=int)
+    parser.add_argument("--audio_mel_n_fft", default=1024, type=int)
+    parser.add_argument("--audio_mel_win_length", default=1024, type=int)
+    parser.add_argument("--audio_mel_hop_length", default=160, type=int)
+    parser.add_argument("--audio_mel_n_mels", default=64, type=int)
+    parser.add_argument("--audio_mel_f_min", default=60, type=int)
+    parser.add_argument("--audio_mel_f_max", default=7800, type=int)
     parser.add_argument("--audio_mel_power", default=2, type=float)
-    parser.add_argument("--audio_mel_num_subsample", default=128, type=int)
+    parser.add_argument("--audio_mel_time", default=96, type=float)
     parser.add_argument("--audio_logmel_mean", default=-7.03, type=float)
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
     

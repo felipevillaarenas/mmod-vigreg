@@ -17,6 +17,7 @@ from torchvision.transforms import (
     RandomApply,
     ColorJitter,
     RandomGrayscale,
+    Resize
 )
 
 
@@ -168,28 +169,27 @@ class AudioTrainDataTransform:
         super().__init__()
         self.args = args
         self.transform = Compose(
-            [
+            [   AudioCut(samples = args.audio_raw_sample_rate),
+                AudioPad(samples = args.audio_raw_sample_rate),
                 Resample(
                     orig_freq=args.audio_raw_sample_rate,
                     new_freq=args.audio_resampled_rate,
                 ),
-                AudioCut(samples = args.audio_resampled_rate),
                 MelSpectrogram(
                     sample_rate=args.audio_resampled_rate,
-                    n_fft=int(
-                        float(args.audio_resampled_rate) / 1e3
-                        * args.audio_mel_window_size
-                        ),
-                    hop_length=int(
-                        float(args.audio_resampled_rate) / 1e4
-                        * args.audio_mel_step_size),
-                    n_mels=args.audio_num_mels,
-                    center=False,
+                    n_fft = args.audio_mel_n_fft,
+                    win_length = args.audio_mel_win_length,
+                    hop_length = args.audio_mel_hop_length,
+                    f_min = args.audio_mel_f_min,
+                    f_max = args.audio_mel_f_max,
+                    n_mels=args.audio_mel_n_mels,
+                    center=True,
                     power=args.audio_mel_power
                 ),
                 Lambda(Clamp(min=1e-10)),
                 Lambda(torch.log),
                 Lambda(AudioReshape()),
+                Resize(size=(args.audio_mel_n_mels, args.audio_mel_time), antialias=True),
                 Normalize((args.audio_logmel_mean,), (args.audio_logmel_std,)),
                 Lambda(Squeeze(dim=0)),
             ]
@@ -212,7 +212,17 @@ class AudioCut:
 
     def __call__(self, x):
         return x[:self.samples]
+    
 
+class AudioPad:
+    """Pad audio"""
+    def __init__(self, samples):
+        self.samples = samples
+
+    def __call__(self, x):
+        pad = (0, self.samples - x.shape[0])
+        return torch.nn.functional.pad(x, pad, "constant", 0) 
+    
 
 class AudioReshape:
     """Audio reshape transform"""

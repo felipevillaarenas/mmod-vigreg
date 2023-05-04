@@ -65,8 +65,10 @@ class VICRegLoss():
         invariance_loss = F.mse_loss(z1, z2)
 
         # Share operation for Variance and Covariance
-        z1 = torch.cat(FullGatherLayer.apply(z1), dim=0)
-        z2 = torch.cat(FullGatherLayer.apply(z2), dim=0)
+        if torch.distributed.is_available():
+            z1 = torch.cat(FullGatherLayer.apply(z1), dim=0)
+            z2 = torch.cat(FullGatherLayer.apply(z2), dim=0)
+            
         z1 = z1 - z1.mean(dim=0)
         z2 = z2 - z2.mean(dim=0)
 
