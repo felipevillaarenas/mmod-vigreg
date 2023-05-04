@@ -1,5 +1,5 @@
-# MMod-VICeg
-MMod-VICReg: Multi-Modal Variance-Invariance-Covariance Regularization for Self-Supervised Learning.
+# Multi-Modal VICReg
+MMod-VICReg: Multi-Modal Variance-Invariance-Covariance Regularizationfor Self-Supervised Learning.
 
 
 <a href="https://pytorch.org/get-started/locally/"><img alt="Python" src="https://img.shields.io/badge/-Python 3.7--3.9-blue?style=for-the-badge&logo=python&logoColor=white"></a>
