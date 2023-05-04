@@ -144,6 +144,6 @@ vscode/
 *settings.json
 
 # Azure
-#/config/workspace.json
-#*.amlignore
-#*.amlignore.amltmp
+/config/workspace.json
+*.amlignore
+*.amlignore.amltmp
