@@ -144,11 +144,9 @@ vscode/
 # Azure
 *workspace.json
 azure-jobs/config
-azure-jobs/config/workspace.json
 
 *.amlignore
 *.amlignore.amltmp
 
 # Mac
 *.DS_Store
-azure-jobs/config/workspace.json
