@@ -134,8 +134,6 @@ data/
 # logs
 *logs/
 
-
-
 # vscode
 .vscode/
 vscode/
@@ -147,3 +145,6 @@ vscode/
 /config/workspace.json
 *.amlignore
 *.amlignore.amltmp
+
+# Mac
+#*.DS_Store
