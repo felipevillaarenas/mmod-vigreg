@@ -13,6 +13,17 @@ from torch import nn
 
 
 def load_pretrained_weights(model, args, model_key='model', strict=True):
+    """Parse the values from the pretrain weights to the model.
+
+    Args:
+        model (nn.Module): Pytorch model.  
+        args (object): Parser with the configuration arguments.
+        model_key (str, optional): keyword for parsing. Defaults to 'model'.
+        strict (bool, optional): Dict state strict match. Defaults to True.
+
+    Returns:
+        list: Sorted list of weights keys.
+    """
     # Loading pretrain Audio BYOL weights
     pathname = str(Path(args.path_pretrained_backbone_weights).joinpath('audio/audio_byol_weights.pyth'))
 
@@ -50,24 +61,33 @@ def load_pretrained_weights(model, args, model_key='model', strict=True):
 
 def load_pretrained_audio_byol(args):
     """
-    Create video backbone and load pretrained weights
+    Create audio backbone and load pretrained weights.
+
+    Args:
+        args (object): Parser with the configuration arguments.
+    
+    Returns:
+        nn.Module: backbone model with updated weights.
     """
+
     audio_backbone = AudioBYOL(n_mels=64, d=3072)
     load_pretrained_weights(audio_backbone, args=args)
     return audio_backbone
 
-def mean_max_pooling(frame_embeddings):
-    assert len(frame_embeddings.shape) == 3 # Batch,Time,Dimension
-    (x1, _) = torch.max(frame_embeddings, dim=1)
-    x2 = torch.mean(frame_embeddings, dim=1)
-    x = x1 + x2
-    return x
 
-
-class AudioBYOLEncoder(nn.Module):
+class AudioBYOL(nn.Module):
     """General Audio Feature Encoder Network"""
 
     def __init__(self, n_mels, d=3072, base_d=64, mlp_hidden_d=2048, conv_layers=2, stack=True):
+        """
+        Args:
+            n_mels (int): Number of mels. 
+            d (int, optional): Size representations. Defaults to 3072.
+            base_d (int, optional): Base dimension. Defaults to 64.
+            mlp_hidden_d (int, optional): Size hidden layer. Defaults to 2048.
+            conv_layers (int, optional): Number of convilutional layers. Defaults to 2.
+            stack (bool, optional): Enables stack features and projections. Defaults to True.
+        """
         super().__init__()
         convs = [
             nn.Conv2d(1, base_d, 3, stride=1, padding=1),
@@ -94,19 +114,22 @@ class AudioBYOLEncoder(nn.Module):
         self.stack = stack
 
     def forward(self, x):
-        x = self.features(x)       # (batch, ch, mel, time)
-        x = x.permute(0, 3, 2, 1)  # (batch, time, mel, ch)
+        """Forward net.
+
+        Args:
+            x (tensor): input tensor with dimesions (batch, ch, mel, time)
+
+        Returns:
+            tensor: Output tensor with dimesions (batch, representation_dimesion)
+        """
+        x = self.features(x)       
+        x = x.permute(0, 3, 2, 1) 
         B, T, D, C = x.shape
-        x = x.reshape((B, T, C*D)) # (batch, time, mel*ch)
+        x = x.reshape((B, T, C*D)) 
         x_fc = self.fc(x)
         x = torch.hstack([x.transpose(1,2), x_fc.transpose(1,2)]).transpose(1,2) if self.stack else x_fc
-        return x
-
-class AudioBYOL(AudioBYOLEncoder):
-    def __init__(self, n_mels, d=3072, mlp_hidden_d=2048):
-        super().__init__(n_mels=n_mels, d=d, mlp_hidden_d=mlp_hidden_d)
-
-    def forward(self, x):
-        x = super().forward(x)
-        x = mean_max_pooling(x)
-        return x
+        assert len(x.shape) == 3 # Batch,Time,Dimension
+        (x1, _) = torch.max(x, dim=1)
+        x2 = torch.mean(x, dim=1)
+        x_out = x1 + x2
+        return x_out

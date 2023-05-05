@@ -10,9 +10,15 @@ import torch.nn as nn
 from pytorchvideo.models.resnet import create_resnet
 
 def load_pretrained_weights(model, args, strict=True):
-    """
-    Create video backbone and replace  the head linear projection
-    with a Identity function.
+    """Parse the values from the pretrain weights to the model.
+
+    Args:
+        model (nn.Module): Pytorch model.  
+        args (object): Parser with the configuration arguments.
+        strict (bool, optional): Dict state strict match. Defaults to True.
+
+    Returns:
+        list: Sorted list of weights keys.
     """
     # Filter relevant layer of pretained BYOL model
     prefix = Path(__file__).parent
@@ -52,10 +58,14 @@ def load_pretrained_weights(model, args, strict=True):
     logging.info(str(model.load_state_dict(weights, strict=strict)))
     return sorted(list(weights.keys()))
 
-
 def load_pretrained_video_byol(args):
-    """
-    Create video backbone and load pretrained weights
+    """Create video backbone and load pretrained weights.
+
+    Args:
+        args (object): Parser with the configuration arguments.
+    
+    Returns:
+        nn.Module: backbone model with updated weights.
     """
     # Load Slow R50 model from torch Hub
     video_backbone = create_resnet(
