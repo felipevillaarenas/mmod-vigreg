@@ -38,10 +38,10 @@ class VICRegLoss():
             invariance_coeff (float): weight for invariance metric.
             variance_coeff (float): weight for variance metric.
             covariance_coeff (float): weight for covariance metric.
-            batch_size (int): _description_
-            num_nodes (int): _description_
-            devices (int): _description_
-            num_features (int): _description_
+            batch_size (int): mini batch size (batch size per GPU)
+            num_nodes (int): Number os nodes
+            devices (int): Number of GPUs per node.
+            num_features (int): Output dimesion of the expander.
         """
         super().__init__()
         self.invariance_coeff = invariance_coeff

@@ -20,6 +20,10 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
     """
 
     def __init__(self, args):
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+        """
         self.args = args
         super().__init__()
 
@@ -61,6 +65,10 @@ class UCF101DataModule(pytorch_lightning.LightningDataModule):
     """
 
     def __init__(self, args):
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+        """
         self.args = args
         super().__init__()
 
@@ -152,6 +160,10 @@ class HMDB51DataModule(pytorch_lightning.LightningDataModule):
     """
 
     def __init__(self, args):
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+        """
         self.args = args
         data_path=os.path.join(self.args.data_path, "annotations")
         super().__init__()
@@ -250,6 +262,10 @@ class LimitDataset(torch.utils.data.Dataset):
     """
 
     def __init__(self, dataset):
+        """
+        Args:
+            dataset (torch.utils.data.Dataset): Input dataset.
+        """
         super().__init__()
         self.dataset = dataset
         self.dataset_iter = itertools.chain.from_iterable(
