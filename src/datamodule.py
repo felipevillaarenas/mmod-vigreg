@@ -7,8 +7,7 @@ import torch
 
 from torch.utils.data import RandomSampler, DistributedSampler
 
-from transforms import MultiModeTrainDataTransform
-from transforms import EvalDataTransform
+from transforms import SSLMultiModeTransform, VideoModeTransform, AudioModeTransform
 
 
 class KineticsDataModule(pytorch_lightning.LightningDataModule):
@@ -33,7 +32,7 @@ class KineticsDataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        train_transform = MultiModeTrainDataTransform(self.args, mode="train")
+        train_transform = SSLMultiModeTransform(self.args, mode="train")
         clip_duration_pretrain = self.args.temporal_distance * self.args.clip_duration
 
         self.train_dataset =  LimitDataset(
@@ -78,7 +77,7 @@ class UCF101DataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        train_transform = EvalDataTransform(self.args, mode="train")
+        train_transform = VideoModeTransform(self.args, mode="train")
         
         self.train_dataset =  LimitDataset(
             pytorchvideo.data.Ucf101(
@@ -105,7 +104,7 @@ class UCF101DataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        val_transform = EvalDataTransform(self.args, mode="val")
+        val_transform = VideoModeTransform(self.args, mode="val")
         
         self.val_dataset =  LimitDataset(
             pytorchvideo.data.Ucf101(
@@ -131,7 +130,7 @@ class UCF101DataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        test_transform = EvalDataTransform(self.args, mode="val")
+        test_transform = VideoModeTransform(self.args, mode="val")
         
         self.test_dataset =  LimitDataset(
             pytorchvideo.data.Ucf101(
@@ -174,7 +173,7 @@ class HMDB51DataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        train_transform = EvalDataTransform(self.args, mode="train")
+        train_transform = VideoModeTransform(self.args, mode="train")
         
         self.train_dataset = LimitDataset(
             pytorchvideo.data.Hmdb51(
@@ -202,7 +201,7 @@ class HMDB51DataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        val_transform = EvalDataTransform(self.args, mode="val")
+        val_transform = VideoModeTransform(self.args, mode="val")
         
         self.val_dataset =  LimitDataset(
             pytorchvideo.data.Hmdb51(
@@ -230,7 +229,7 @@ class HMDB51DataModule(pytorch_lightning.LightningDataModule):
         """
         sampler = DistributedSampler if self.args.num_nodes * self.args.devices > 1 else RandomSampler 
 
-        test_transform = EvalDataTransform(self.args, mode="val")
+        test_transform = VideoModeTransform(self.args, mode="val")
         
         self.test_dataset =  LimitDataset(
             pytorchvideo.data.Hmdb51(

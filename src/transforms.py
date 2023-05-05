@@ -21,7 +21,7 @@ from torchvision.transforms import (
 )
 
 
-class MultiModeTrainDataTransform:
+class SSLMultiModeTransform:
     """
     Video Transforms for Multi Modal Self Supervised Learning.
     """
@@ -35,8 +35,8 @@ class MultiModeTrainDataTransform:
 
         super().__init__()
         self.args = args
-        self.video = VideoTrainDataTransform(args, mode)
-        self.audio = AudioTrainDataTransform(args, mode)
+        self.video = VideoTransform(args, mode)
+        self.audio = AudioTransform(args, mode)
 
     def __call__(self, sample):
         """
@@ -143,7 +143,7 @@ class MultiModeTrainDataTransform:
         return audios
 
 
-class EvalDataTransform:
+class VideoModeTransform:
     """ Video Transforms for Fine Tuning and Linear Evaluation."""
 
     def __init__(self, args, mode):
@@ -154,11 +154,10 @@ class EvalDataTransform:
         """
         super().__init__()
         self.args = args
-        self.video = VideoTrainDataTransform(args, mode)
-        self.audio = AudioTrainDataTransform(args, mode)
+        self.video = VideoTransform(args, mode)
 
     def __call__(self, sample):
-        """Applies data transformation based on the data modality.
+        """Applies data transformation to video key.
 
         Args:
             sample (dict):  A dictionary with the input video or audio.
@@ -170,13 +169,35 @@ class EvalDataTransform:
         if self.args.eval_data_modality == 'video':
             sample['video'] = self.video.transform(sample['video'])
 
-        elif self.args.eval_data_modality == 'audio':
-            sample['audio'] = self.audio.transform(sample['audio'])
-
         return sample
 
+class AudioModeTransform:
+    """ Audio Transforms for Fine Tuning and Linear Evaluation."""
 
-class VideoTrainDataTransform:
+    def __init__(self, args, mode):
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+            mode (str): Define transformation mode (e.g. 'train', 'val').
+        """
+        super().__init__()
+        self.args = args
+        self.audio = AudioTransform(args, mode)
+
+    def __call__(self, sample):
+        """Applies data transformation to audio key.
+
+        Args:
+            sample (dict):  A dictionary with the input video or audio.
+
+        Returns:
+            dict: _description_
+        """
+        if self.args.eval_data_modality == 'audio':
+            sample['audio'] = self.audio.transform(sample['audio'])
+        return sample
+
+class VideoTransform:
     """ Video Transforms for Multi Modal Self Supervised Learning."""
 
     def __init__(self, args, mode):
@@ -234,7 +255,7 @@ class VideoTrainDataTransform:
         )
 
 
-class AudioTrainDataTransform:
+class AudioTransform:
     """ Audio Transforms for Multi Modal Self Supervised Learning."""
 
     def __init__(self, args, mode):
