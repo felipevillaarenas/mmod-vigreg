@@ -161,13 +161,11 @@ def main():
     parser.add_argument("--audio_mel_time", default=96, type=float)
     parser.add_argument("--audio_logmel_mean", default=-7.03, type=float)
     parser.add_argument("--audio_logmel_std", default=4.66, type=float)
-    
 
     # Backbone
     parser.add_argument("--backbone_video", default="byol_video", type=str)
     parser.add_argument("--backbone_audio", default="byol_audio", type=str)
     parser.add_argument("--path_pretrained_backbone_weights", default="/home/azureuser/cloudfiles/code/weights/byol", type=str)
-
 
     # Representations and Projections
     parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
