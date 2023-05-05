@@ -38,6 +38,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         self.args = args
         self.warmup_stage = True
 
+        # Clean CUDA Cache
+        self.clean_cache()
+
         # Init backbone
         self.video_backbone = self.init_video_backbone()
         self.audio_backbone = self.init_audio_backbone()
@@ -98,6 +101,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             self.num_features_cross_video_to_audio
             )
     
+    def clean_cache(self):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def init_video_backbone(self):
         """
         Create video backbone and set the size of video representations.
@@ -297,7 +304,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         losses = self.share_step(batch, batch_idx)
 
         # log results
-        self.log('train/loss', losses['loss'], on_step=False, on_epoch=True, sync_dist=True)
+        self.log('train/loss', losses['loss'], on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
         self.log('train/intra_video_loss', losses['intra_video_loss'], on_step=False, on_epoch=True, sync_dist=True)
         self.log('train/intra_audio_loss', losses['intra_audio_loss'], on_step=False, on_epoch=True, sync_dist=True)
         self.log('train/cross_video_audio_loss', losses['cross_video_audio_loss'], on_step=False, on_epoch=True, sync_dist=True)
@@ -423,8 +430,8 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         """
         loss, acc = self.shared_step(batch)
         
-        self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
+        self.log("train/acc", acc, on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
 
         return loss
 

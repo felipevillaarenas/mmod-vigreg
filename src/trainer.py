@@ -6,6 +6,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import MLFlowLogger
 from pytorch_lightning.plugins.environments import MPIEnvironment
+from pytorch_lightning.strategies import DDPStrategy
 
 from datamodule import KineticsDataModule
 from datamodule import UCF101DataModule
@@ -13,6 +14,8 @@ from datamodule import HMDB51DataModule
 
 from model import MultiModVICRegModule
 from model import EvaluatorModule
+
+from strategy import CacheDDPStrategy
 
 from azureml.core.run import Run
 
@@ -39,7 +42,7 @@ def train(args):
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        strategy='ddp',
+        strategy=CacheDDPStrategy(find_unused_parameters=True),
         plugins=MPIEnvironment(),
         precision=args.precision,
         gradient_clip_val=1.0,
@@ -179,7 +182,7 @@ def main():
     parser.add_argument("--learning_rate", default=3.6, type=float)
     parser.add_argument("--max_epochs", default=50, type=int)
     parser.add_argument("--precision", default='16-mixed', type=str)
-    parser.add_argument("--warmup_epochs", default=0, type=int)
+    parser.add_argument("--warmup_epochs", default=5, type=int)
     parser.add_argument("--num_train_samples", default=2.4e5, type=int)
 
     # Loss
@@ -192,7 +195,7 @@ def main():
     # Trainer & Infrastructure
     parser.add_argument("--accelerator", default="gpu", type=str)
     parser.add_argument("--devices", default=8, type=int)
-    parser.add_argument("--num_workers", default=1, type=int)
+    parser.add_argument("--num_workers", default=5, type=int)
     parser.add_argument("--num_nodes", default=1, type=int)
 
     # Evaluation args
