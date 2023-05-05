@@ -77,7 +77,7 @@ class MultiModeTrainDataTransform:
         
         # Get video temporal clips
         try:
-            videos = torch.chunk(sample['video'], 
+            videos = torch.chunk(sample['video'],
                                  chunks=self.args.temporal_distance,
                                  dim=1)
         except: 
@@ -87,8 +87,7 @@ class MultiModeTrainDataTransform:
         try:
             audios = torch.chunk(sample['audio'],
                                  chunks=self.args.temporal_distance,
-                                 dim=0
-                                 )
+                                 dim=0)
         except:
             audios = self.dummy_audio_views()
 
@@ -104,7 +103,7 @@ class MultiModeTrainDataTransform:
         views['audio'] = (
             self.audio.transform(audios[idx]),
             self.audio.transform(audios[idx_prime])
-            )     
+        )     
             
         return views
     
@@ -132,7 +131,7 @@ class MultiModeTrainDataTransform:
     
     def dummy_audio_views(self):
         """
-        Creates two random tensors for auddio,
+        Creates two random tensors for audio,
 
         Returns:
             tuple: (<audio_1_tensor>, <audio_2_tensor>)
@@ -160,21 +159,9 @@ class EvalDataTransform:
 
     def __call__(self, sample):
         """Applies data transformation based on the data modality.
-        Additionally relace the key of the unused modality with None.
 
         Args:
-            sample (dict):  A dictionary with the input video following format.
-            
-            .. code-block:: text
-                {
-                    'video': <video_tensor>,
-                    'audio': <audio>,
-                    'label': <index_label>,
-                    'video_label': <index_label>
-                    'video_index': <video_index>,
-                    'clip_index': <clip_index>,
-                    'aug_index': <aug_index>,
-                }
+            sample (dict):  A dictionary with the input video or audio.
 
         Returns:
             dict: _description_
@@ -182,11 +169,9 @@ class EvalDataTransform:
         # Applying transforms
         if self.args.eval_data_modality == 'video':
             sample['video'] = self.video.transform(sample['video'])
-            sample['audio'] = None
 
         elif self.args.eval_data_modality == 'audio':
             sample['audio'] = self.audio.transform(sample['audio'])
-            sample['video'] = None
 
         return sample
 
@@ -195,9 +180,12 @@ class VideoTrainDataTransform:
     """ Video Transforms for Multi Modal Self Supervised Learning."""
 
     def __init__(self, args, mode):
-
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+            mode (str): Define transformation mode (e.g. 'train', 'val').
+        """
         super().__init__()
-
         self.transform = Compose(
             [
                 UniformTemporalSubsample(
