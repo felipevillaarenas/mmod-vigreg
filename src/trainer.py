@@ -17,7 +17,6 @@ from model import EvaluatorModule
 from azureml.core.run import Run
 
 
-
 def train(args):
     """
     Network pretrain on Kinatics 400.
@@ -115,7 +114,6 @@ def eval(args):
         logger=mlf_logger,
         sync_batchnorm=True,
         use_distributed_sampler=False
-
     )
 
     model = torch.compile(model, mode="reduce-overhead") 

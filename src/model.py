@@ -29,7 +29,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
     PyTorch Lightning implementation of Multi-Modal VICReg.
     """
     def __init__(self, args):
-
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+        """
         super().__init__()
         self.save_hyperparameters()
         self.args = args
@@ -97,7 +100,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
     
     def init_video_backbone(self):
         """
-        Create video backbone 
+        Create video backbone and set the size of video representations.
         """
         if self.args.backbone_video == 'byol_video':
             video_backbone = load_pretrained_video_byol(args=self.args)
@@ -107,7 +110,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
 
     def init_audio_backbone(self):
         """
-        Create audio backbone.
+        Create audio backbone and set the size of audio representations.
         """
         if self.args.backbone_audio == 'byol_audio':
             audio_backbone = load_pretrained_audio_byol(args=self.args)
@@ -306,7 +309,6 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         We use the LARS/Adam optimizer with per step cosine annealing
         scheduler.
         """
-        
         args = self.args
 
         if args.exclude_bn_bias:
@@ -356,7 +358,10 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
     PyTorch Lightning implementation of Multi-Modal VICReg.
     """
     def __init__(self, args):
-
+        """
+        Args:
+            args (object): Parser with the configuration arguments.
+        """
         super().__init__()
         self.save_hyperparameters()
         self.args = args
@@ -370,23 +375,27 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
 
     def init_backbone(self):
         """
-        Create video backbone and replace  the head linear projection
-        with a Identity function.
+        Load pretrain Multi-Mode VICRec model. Selects the modality backbone 
+        (e.g. audio or video) that will be used during the evaluation protocol.
+
+        Returns:
+            nn.Module: Modality backbone.
         """
-        model = MultiModVICRegModule(self.args, None)
 
         if torch.cuda.is_available():
             self.args.device_type = torch.device("cuda")
         else:
             self.args.device_type = torch.device("cpu")
 
-        checkpoint = torch.load(self.args.checkpoint_path, map_location=self.args.device_type)
+        # Load model with pretrained weights
+        model = MultiModVICRegModule(self.args, None)
+        checkpoint = torch.load(self.args.checkpoint_path, 
+                                map_location=self.args.device_type
+                                )
         model.load_state_dict(checkpoint['state_dict'])
         model.to(self.args.device_type)
 
-        if self.args.eval_protocol == 'linear':
-                model.freeze()
-        
+        # Selecting Backbone modality for evaluation protocol.
         if self.args.eval_data_modality == 'video':
             backbone = model.video_backbone
             self.args.representations_dim = model.args.video_representations_dim 
@@ -398,17 +407,20 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         return backbone
 
     def init_linear_layer(self):
+        """
+        Layer for linear evaluation. 
+        """
         linear_layer =  nn.Sequential(
             nn.Dropout(p=self.args.eval_dropout_p), 
             nn.Linear(self.args.representations_dim, self.args.num_classes, bias=True)
         )
         return linear_layer
-
-    def on_train_epoch_start(self):
-        if self.args.eval_protocol == 'linear':
-            self.backbone.eval()
-
+ 
     def training_step(self, batch, batch_idx):
+        """
+        This function is called in the inner loop of the training epoch.
+        It must return a loss that is used for loss.backwards() internally.
+        """
         loss, acc = self.shared_step(batch)
         
         self.log("train/loss", loss, on_step=False, on_epoch=True, sync_dist=True)
@@ -417,18 +429,39 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """
+        This function is called in the inner loop of the validation epoch.
+        """
         loss, acc = self.shared_step(batch)
 
         self.log("val/loss", loss, on_step=False, on_epoch=True, sync_dist=True)
         self.log("val/acc", acc, on_step=False, on_epoch=True, sync_dist=True)
     
     def test_step(self, batch, batch_idx):
+        """
+        This function is called in the inner loop of the test epoch.
+        """
         loss, acc = self.shared_step(batch)
 
         self.log("test/loss", loss, on_step=False, on_epoch=True, sync_dist=True)
         self.log("test/acc", acc, on_step=False, on_epoch=True, sync_dist=True)
 
     def shared_step(self, batch):
+        """
+        Linear projections of representations are obtained and cross entropy
+        loss is calcualted with respect to the labels. The backbone weights
+        are only updated if the evaluation protocol is `finetune`.
+        
+        Args:
+            batch: {
+                "video":<video_tensor> (Optional),
+                "audio":<audio_tensor> (Optional),
+                "label": <label>
+            }
+
+        Returns:
+            tuple: (cross entropy loss, accuracy metric)
+        """
         # Get data specific to modality
         x = batch[self.args.eval_data_modality]
 
@@ -443,7 +476,7 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         # Linear projection
         y_hat = self.linear_layer(representations)
 
-        # Encode Labels
+        # Encode Labels TODO: fix annotation and remove this part
         if self.args.eval_dataset == 'ucf101':
             label_string = [ video .split('_')[1] for video in batch['video_name']]
             labels = torch.tensor([self.args.dict_labels[l] for l in label_string])
@@ -464,6 +497,10 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         return loss, acc
   
     def configure_optimizers(self):
+        """
+        We use the SGD optimizer with multi-step leraning rate scheduler.
+        scheduler.
+        """
         optimizer = torch.optim.SGD(
             self.parameters(),
             lr=self.args.eval_learning_rate,

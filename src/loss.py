@@ -33,6 +33,16 @@ class VICRegLoss():
         num_features
 
     ):
+        """
+        Args:
+            invariance_coeff (float): weight for invariance metric.
+            variance_coeff (float): weight for variance metric.
+            covariance_coeff (float): weight for covariance metric.
+            batch_size (int): _description_
+            num_nodes (int): _description_
+            devices (int): _description_
+            num_features (int): _description_
+        """
         super().__init__()
         self.invariance_coeff = invariance_coeff
         self.variance_coeff = variance_coeff
