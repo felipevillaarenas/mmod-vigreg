@@ -42,7 +42,7 @@ def train(args):
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        strategy=CacheDDPStrategy(find_unused_parameters=True),
+        strategy=DDPStrategy(find_unused_parameters=True),
         plugins=MPIEnvironment(),
         precision=args.precision,
         gradient_clip_val=1.0,
@@ -175,15 +175,16 @@ def main():
     parser.add_argument("--cross_audio_to_video_projector", default="1024-512-128", type=str)
 
     # Optim params
+    parser.add_argument("--learning_rate", default=3.6, type=float)
+    parser.add_argument("--max_epochs", default=50, type=int)
+    parser.add_argument("--warmup_epochs", default=5, type=int)
     parser.add_argument("--optimizer", default="lars", type=str)
     parser.add_argument("--exclude_bn_bias", action='store_false')
     parser.add_argument("--weight_decay", default=1e-6, type=float)
     parser.add_argument("--momentum", default=0.9, type=float)
-    parser.add_argument("--learning_rate", default=3.6, type=float)
-    parser.add_argument("--max_epochs", default=50, type=int)
-    parser.add_argument("--precision", default='16-mixed', type=str)
-    parser.add_argument("--warmup_epochs", default=5, type=int)
+    parser.add_argument("--precision", default='32', type=str)
     parser.add_argument("--num_train_samples", default=2.4e5, type=int)
+    parser.add_argument("--init_backbone_freeze_epochs", default=2, type=int)
 
     # Loss
     parser.add_argument("--invariance-coeff", default=25.0, type=float)

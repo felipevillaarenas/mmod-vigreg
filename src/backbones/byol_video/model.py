@@ -30,6 +30,7 @@ def load_pretrained_weights(model, args, strict=True):
     pathname = str(Path(args.path_pretrained_backbone_weights).joinpath('video/video_byol_weights.pyth'))
     
     if torch.cuda.is_available():
+        torch.cuda.empty_cache()
         pretrained_weights = torch.load(pathname, map_location='cuda')
     else:
         pretrained_weights = torch.load(pathname, map_location='cpu')

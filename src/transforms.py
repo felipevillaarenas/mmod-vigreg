@@ -74,37 +74,34 @@ class SSLMultiModeTransform:
 
         # Clip idxs
         idx, idx_prime = (0, self.args.temporal_distance - 1)
-        
+        views = dict()
+
         # Get video temporal clips
         try:
             videos = torch.chunk(sample['video'],
                                  chunks=self.args.temporal_distance,
                                  dim=1)
+            # Apply video tranform to views
+            views['video'] = (
+                self.video.transform(videos[idx]),
+                self.video.transform(videos[idx_prime])
+            )
         except: 
-            videos = self.dummy_video_views()
+            views['video'] = self.dummy_video_views()
             
         # Get audio temporal clips
         try:
             audios = torch.chunk(sample['audio'],
                                  chunks=self.args.temporal_distance,
                                  dim=0)
+            # Apply audio tranform to views
+            views['audio'] = (
+                self.audio.transform(audios[idx]),
+                self.audio.transform(audios[idx_prime])
+            )   
         except:
-            audios = self.dummy_audio_views()
+            views['audio'] = self.dummy_audio_views()
 
-        views = {}
-
-        # Apply video tranform to views
-        views['video'] = (
-            self.video.transform(videos[idx]),
-            self.video.transform(videos[idx_prime])
-        )
-        
-        # Apply audio tranform to views
-        views['audio'] = (
-            self.audio.transform(audios[idx]),
-            self.audio.transform(audios[idx_prime])
-        )     
-            
         return views
     
     def dummy_video_views(self):
@@ -127,7 +124,13 @@ class SSLMultiModeTransform:
         videos = tuple()
         for i in range(self.args.temporal_distance):
             videos += (video_empty,)
-        return videos
+        
+        # Apply video tranform to views
+        views = (
+            self.video.transform(videos[0]),
+            self.video.transform(videos[1])
+        )
+        return views
     
     def dummy_audio_views(self):
         """
@@ -140,7 +143,13 @@ class SSLMultiModeTransform:
         audios = tuple()
         for i in range(self.args.temporal_distance):
             audios += (audio_empty,)
-        return audios
+
+        # Apply video tranform to views
+        views = (
+            self.audio.transform(audios[0]),
+            self.audio.transform(audios[1])
+        )
+        return views
 
 
 class VideoModeTransform:

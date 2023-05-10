@@ -36,7 +36,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.args = args
-        self.warmup_stage = True
+        self.backbone_freeze = True
 
         # Clean CUDA Cache
         self.clean_cache()
@@ -201,7 +201,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         video1, video2 = samples
 
         # video: batches of representations
-        if self.warmup_stage:
+        if self.backbone_freeze:
             with torch.no_grad():
                 video_rep1 = self.video_backbone(video1)
                 video_rep2 = self.video_backbone(video2)
@@ -237,7 +237,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         audio1, audio2 = samples
 
         # audio: batches of representations
-        if self.warmup_stage:
+        if self.backbone_freeze:
             with torch.no_grad():
                 audio_rep1 = self.audio_backbone(audio1)
                 audio_rep2 = self.audio_backbone(audio2)
@@ -281,8 +281,8 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         if self.args.num_nodes * self.args.devices > 1:
             self.trainer.datamodule.train_dataset.dataset.video_sampler.set_epoch(epoch)
         
-        if epoch >= self.args.warmup_epochs:
-            self.warmup_stage = False
+        if epoch >= self.args.init_backbone_freeze_epochs:
+            self.backbone_freeze = False
 
     def training_step(self, batch, batch_idx):
         """
@@ -304,7 +304,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         losses = self.share_step(batch, batch_idx)
 
         # log results
-        self.log('train/loss', losses['loss'], on_step=False, on_epoch=True, sync_dist=True, prog_bar=True)
+        self.log('train/loss', losses['loss'], on_step=True, on_epoch=True, sync_dist=True, prog_bar=True)
         self.log('train/intra_video_loss', losses['intra_video_loss'], on_step=False, on_epoch=True, sync_dist=True)
         self.log('train/intra_audio_loss', losses['intra_audio_loss'], on_step=False, on_epoch=True, sync_dist=True)
         self.log('train/cross_video_audio_loss', losses['cross_video_audio_loss'], on_step=False, on_epoch=True, sync_dist=True)

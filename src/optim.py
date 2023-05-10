@@ -194,7 +194,7 @@ class CosineAnnealingWarmupRestarts(_LRScheduler):
     
     def get_lr(self):
         """
-        Get leraning rate based for warmup or cosine annealing phase. 
+        Get learning rate based for warmup or cosine annealing phase. 
         """
         if self.step_in_cycle == -1:
             return self.base_lrs

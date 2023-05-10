@@ -28,6 +28,7 @@ def load_pretrained_weights(model, args, model_key='model', strict=True):
     pathname = str(Path(args.path_pretrained_backbone_weights).joinpath('audio/audio_byol_weights.pyth'))
 
     if torch.cuda.is_available():
+        torch.cuda.empty_cache()
         state_dict = torch.load(pathname, map_location='cuda')
     else:
         state_dict = torch.load(pathname, map_location='cpu')

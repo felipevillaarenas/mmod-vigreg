@@ -23,6 +23,6 @@ class CacheDDPStrategy(DDPStrategy):
         device_ids = self.determine_ddp_device_ids()
         ctx = torch.cuda.stream(torch.cuda.Stream()) if device_ids is not None else nullcontext()
         with ctx:
-            torch.cuda.set_device(device_ids)
+            torch.cuda.set_device(device_ids[0])
             torch.cuda.empty_cache()
             return DistributedDataParallel(module=model, device_ids=device_ids, **self._ddp_kwargs)
