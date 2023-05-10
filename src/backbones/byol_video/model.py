@@ -54,9 +54,16 @@ def load_pretrained_weights(model, args, strict=True):
         for i, key in enumerate(list(pretrained_state_dict_filtered.keys())):
             weights[keys_model_state[i]] = pretrained_state_dict_filtered[key]
 
+
     # Udate pretarin BYOL weights in model
     logging.info(f' using network pretrained weight: {Path(pathname).name}')
     logging.info(str(model.load_state_dict(weights, strict=strict)))
+
+    # Free Cache
+    if torch.cuda.is_available():
+        del pretrained_weights
+        torch.cuda.empty_cache()
+
     return sorted(list(weights.keys()))
 
 def load_pretrained_video_byol(args):

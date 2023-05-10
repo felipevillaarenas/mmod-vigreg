@@ -58,6 +58,12 @@ def load_pretrained_weights(model, args, model_key='model', strict=True):
 
     logging.info(f' using network pretrained weight: {Path(pathname).name}')
     logging.info(str(model.load_state_dict(weights, strict=strict)))
+
+    # Free Cache
+    if torch.cuda.is_available():
+        del state_dict
+        torch.cuda.empty_cache()
+
     return sorted(list(weights.keys()))
 
 def load_pretrained_audio_byol(args):

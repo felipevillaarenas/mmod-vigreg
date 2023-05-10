@@ -49,6 +49,7 @@ def train(args):
         callbacks=callbacks,
         num_sanity_val_steps=0,
         logger=mlf_logger,
+        benchmark=True,
         sync_batchnorm=True,
         use_distributed_sampler=False
     )
