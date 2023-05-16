@@ -170,15 +170,15 @@ def main():
     parser.add_argument("--path_pretrained_backbone_weights", default="/home/azureuser/cloudfiles/code/weights/byol", type=str)
 
     # Representations and Projections
-    parser.add_argument("--intra_video_projector", default="8192-8192", type=str)
+    parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
     parser.add_argument("--intra_audio_projector", default="8192-8192", type=str)
     parser.add_argument("--cross_video_to_audio_projector", default="1024-512-128", type=str)
     parser.add_argument("--cross_audio_to_video_projector", default="1024-512-128", type=str)
 
     # Optim params
-    parser.add_argument("--learning_rate", default=3.6, type=float)
+    parser.add_argument("--learning_rate", default=1.8, type=float)
     parser.add_argument("--max_epochs", default=50, type=int)
-    parser.add_argument("--warmup_epochs", default=5, type=int)
+    parser.add_argument("--warmup_epochs", default=0, type=int)
     parser.add_argument("--optimizer", default="lars", type=str)
     parser.add_argument("--exclude_bn_bias", action='store_false')
     parser.add_argument("--weight_decay", default=1e-6, type=float)

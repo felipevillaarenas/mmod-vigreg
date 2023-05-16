@@ -8,7 +8,7 @@ from azureml.core.runconfig import MpiConfiguration, DockerConfiguration
 ws = Workspace.from_config("config/workspace.json")
 
 # Connect to traning cluster
-compute_name = 'cluster-a100-8gpus-80g' #'cluster-v100-4gpus-32g' 'cluster-a100-8gpus-80g'  'cluster-v100-8gpus-32g' 'cluster-a100-8gpus-40g'
+compute_name = 'cluster-v100-8gpus-32g' #'cluster-v100-4gpus-32g' 'cluster-a100-8gpus-80g'  'cluster-v100-8gpus-32g' 'cluster-a100-8gpus-40g'
 compute_target = ComputeTarget(workspace=ws, name=compute_name)
 
 # Connect to experiment

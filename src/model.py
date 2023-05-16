@@ -112,6 +112,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         if self.args.backbone_video == 'byol_video':
             video_backbone = load_pretrained_video_byol(args=self.args)
             self.args.video_representations_dim = 2048
+        
+        # Freeze backbone
+        for name, para in video_backbone.named_parameters():
+            para.requires_grad = False
 
         return video_backbone
 
@@ -122,7 +126,11 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         if self.args.backbone_audio == 'byol_audio':
             audio_backbone = load_pretrained_audio_byol(args=self.args)
             self.args.audio_representations_dim = 3072
-            
+        
+        # Freeze backbone
+        for name, para in audio_backbone.named_parameters():
+            para.requires_grad = False
+
         return audio_backbone
 
     def init_projector(self, representations_dim, projector_dims):
@@ -201,13 +209,8 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         video1, video2 = samples
 
         # video: batches of representations
-        if self.backbone_freeze:
-            with torch.no_grad():
-                video_rep1 = self.video_backbone(video1)
-                video_rep2 = self.video_backbone(video2)
-        else:
-            video_rep1 = self.video_backbone(video1)
-            video_rep2 = self.video_backbone(video2)
+        video_rep1 = self.video_backbone(video1)
+        video_rep2 = self.video_backbone(video2)
 
         # video: batches of embeddings
         video_emb1 = self.intra_video_projector(video_rep1)
@@ -232,18 +235,12 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
                 - (audio_rep1, audio_rep2): Audio representations for clip1 and clip2.
         """
         
-        
         # audio: batches of transform views
         audio1, audio2 = samples
 
         # audio: batches of representations
-        if self.backbone_freeze:
-            with torch.no_grad():
-                audio_rep1 = self.audio_backbone(audio1)
-                audio_rep2 = self.audio_backbone(audio2)
-        else:
-            audio_rep1 = self.audio_backbone(audio1)
-            audio_rep2 = self.audio_backbone(audio2)
+        audio_rep1 = self.audio_backbone(audio1)
+        audio_rep2 = self.audio_backbone(audio2)
 
         # audio: batches of embeddings
         audio_emb1 = self.intra_audio_projector(audio_rep1)
@@ -282,7 +279,17 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             self.trainer.datamodule.train_dataset.dataset.video_sampler.set_epoch(epoch)
         
         if epoch >= self.args.init_backbone_freeze_epochs:
-            self.backbone_freeze = False
+            # Unfreeze last Res-block for video backbone
+            for name, para in self.video_backbone.named_parameters():
+                if name.startswith("blocks.4"):
+                    para.requires_grad = True
+            
+            # Unfreeze last Res-block for audio backbone
+            for name, para in self.audio_backbone.named_parameters():
+                if name.startswith("fc"):
+                    para.requires_grad = True
+            
+
 
     def training_step(self, batch, batch_idx):
         """
