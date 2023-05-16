@@ -29,6 +29,7 @@ def load_pretrained_weights(model, args, model_key='model', strict=True):
 
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
         state_dict = torch.load(pathname, map_location='cuda')
     else:
         state_dict = torch.load(pathname, map_location='cpu')

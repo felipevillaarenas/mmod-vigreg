@@ -6,7 +6,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import MLFlowLogger
 from pytorch_lightning.plugins.environments import MPIEnvironment
-from pytorch_lightning.strategies import DDPStrategy
+from pytorch_lightning.plugins.precision import MixedPrecisionPlugin
+from pytorch_lightning.strategies import DDPStrategy, DeepSpeedStrategy
 
 from datamodule import KineticsDataModule
 from datamodule import UCF101DataModule
@@ -42,16 +43,15 @@ def train(args):
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        strategy=DDPStrategy(find_unused_parameters=True),
+        strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
         plugins=MPIEnvironment(),
         precision=args.precision,
-        gradient_clip_val=1.0,
+        gradient_clip_val=0.5,
         callbacks=callbacks,
         num_sanity_val_steps=0,
         logger=mlf_logger,
-        benchmark=True,
         sync_batchnorm=True,
-        use_distributed_sampler=False
+        use_distributed_sampler=False,
     )
 
     dm = KineticsDataModule(args)
@@ -170,7 +170,7 @@ def main():
     parser.add_argument("--path_pretrained_backbone_weights", default="/home/azureuser/cloudfiles/code/weights/byol", type=str)
 
     # Representations and Projections
-    parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
+    parser.add_argument("--intra_video_projector", default="8192-8192", type=str)
     parser.add_argument("--intra_audio_projector", default="8192-8192", type=str)
     parser.add_argument("--cross_video_to_audio_projector", default="1024-512-128", type=str)
     parser.add_argument("--cross_audio_to_video_projector", default="1024-512-128", type=str)
@@ -183,9 +183,9 @@ def main():
     parser.add_argument("--exclude_bn_bias", action='store_false')
     parser.add_argument("--weight_decay", default=1e-6, type=float)
     parser.add_argument("--momentum", default=0.9, type=float)
-    parser.add_argument("--precision", default='32', type=str)
+    parser.add_argument("--precision", default="16-mixed", type=str)#"16-mixed"
     parser.add_argument("--num_train_samples", default=2.4e5, type=int)
-    parser.add_argument("--init_backbone_freeze_epochs", default=2, type=int)
+    parser.add_argument("--init_backbone_freeze_epochs", default=0, type=int)
 
     # Loss
     parser.add_argument("--invariance-coeff", default=25.0, type=float)

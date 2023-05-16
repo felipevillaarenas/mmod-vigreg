@@ -63,7 +63,6 @@ def load_pretrained_weights(model, args, strict=True):
     if torch.cuda.is_available():
         del pretrained_weights
         torch.cuda.empty_cache()
-
     return sorted(list(weights.keys()))
 
 def load_pretrained_video_byol(args):
