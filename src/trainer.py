@@ -138,7 +138,7 @@ def main():
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
-    parser.add_argument("--batch_size", default=8, type=int)
+    parser.add_argument("--batch_size", default=16, type=int)
     parser.add_argument("--clip_duration", default=2, type=float)
     parser.add_argument("--temporal_distance", default=4, type=int)
     parser.add_argument("--video_num_subsampled", default=8, type=int)

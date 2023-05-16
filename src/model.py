@@ -279,12 +279,12 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             self.trainer.datamodule.train_dataset.dataset.video_sampler.set_epoch(epoch)
         
         if epoch >= self.args.init_backbone_freeze_epochs:
-            # Unfreeze last Res-block for video backbone
+            # Unfreeze last block for video backbone
             for name, para in self.video_backbone.named_parameters():
                 if name.startswith("blocks.4"):
                     para.requires_grad = True
             
-            # Unfreeze last Res-block for audio backbone
+            # Unfreeze fc layer for audio backbone
             for name, para in self.audio_backbone.named_parameters():
                 if name.startswith("fc"):
                     para.requires_grad = True
