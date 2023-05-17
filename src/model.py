@@ -116,7 +116,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         # Freeze backbone
         for name, para in video_backbone.named_parameters():
             para.requires_grad = False
-
+            
         return video_backbone
 
     def init_audio_backbone(self):

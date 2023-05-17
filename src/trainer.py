@@ -138,7 +138,7 @@ def main():
     parser.add_argument("--video_path_prefix", default="", type=str)
 
     # Data Transforms
-    parser.add_argument("--batch_size", default=16, type=int)
+    parser.add_argument("--batch_size", default=32, type=int)
     parser.add_argument("--clip_duration", default=2, type=float)
     parser.add_argument("--temporal_distance", default=4, type=int)
     parser.add_argument("--video_num_subsampled", default=8, type=int)
@@ -177,7 +177,7 @@ def main():
 
     # Optim params
     parser.add_argument("--learning_rate", default=1.8, type=float)
-    parser.add_argument("--max_epochs", default=50, type=int)
+    parser.add_argument("--max_epochs", default=25, type=int)
     parser.add_argument("--warmup_epochs", default=0, type=int)
     parser.add_argument("--optimizer", default="lars", type=str)
     parser.add_argument("--exclude_bn_bias", action='store_false')
@@ -185,7 +185,7 @@ def main():
     parser.add_argument("--momentum", default=0.9, type=float)
     parser.add_argument("--precision", default="16-mixed", type=str)#"16-mixed"
     parser.add_argument("--num_train_samples", default=2.4e5, type=int)
-    parser.add_argument("--init_backbone_freeze_epochs", default=0, type=int)
+    parser.add_argument("--init_backbone_freeze_epochs", default=5, type=int)
 
     # Loss
     parser.add_argument("--invariance-coeff", default=25.0, type=float)
