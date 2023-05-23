@@ -30,7 +30,7 @@ script_name = 'trainer.py'
 
 # Number of GPUs per Node, Nodes and Workers per GPU
 devices = 8
-num_nodes = 4
+num_nodes = 1
 num_workers = 5
 
 args = ['--data_path', dataset_kinetics400.as_named_input('kinetics400').as_download(),
@@ -44,7 +44,7 @@ args = ['--data_path', dataset_kinetics400.as_named_input('kinetics400').as_down
 distr_config = MpiConfiguration(node_count=num_nodes, process_count_per_node=devices)
 
 # Docker config
-docker_config = DockerConfiguration(use_docker=True, shm_size='16g')
+docker_config = DockerConfiguration(use_docker=True, shm_size='32g')
 
 # create job config
 src = ScriptRunConfig(

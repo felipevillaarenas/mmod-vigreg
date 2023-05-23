@@ -13,6 +13,8 @@ import torchvision
 
 import pytorch_lightning
 
+from pytorch_lightning.callbacks import ModelSummary
+
 from torchmetrics import Accuracy
 
 from optim import LARS
@@ -36,7 +38,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.args = args
-        self.backbone_freeze = True
+        self.unfreeze_last_layer = False
 
         # Clean CUDA Cache
         self.clean_cache()
@@ -114,8 +116,9 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             self.args.video_representations_dim = 2048
         
         # Freeze backbone
-        for name, para in video_backbone.named_parameters():
-            para.requires_grad = False
+        video_backbone = self.freeze_model_weights(video_backbone)
+        video_backbone = self.unfreeze_layer_weights(video_backbone, key="blocks.4")
+        video_backbone = self.unfreeze_layer_weights(video_backbone, key="blocks.3")
             
         return video_backbone
 
@@ -128,10 +131,48 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             self.args.audio_representations_dim = 3072
         
         # Freeze backbone
-        for name, para in audio_backbone.named_parameters():
-            para.requires_grad = False
-
+        audio_backbone = self.freeze_model_weights(audio_backbone)
+        audio_backbone = self.unfreeze_layer_weights(audio_backbone, key="fc")
         return audio_backbone
+    
+    def freeze_model_weights(self, model):
+        """
+        Freeze the model weights based on the layer names.
+
+        Args:
+            model (torch.Module): Input model.
+        
+        Returns:
+            torch.Module: model with all parameters freeze.
+        """
+        print('Going to apply weight frozen')
+        for name, para in model.named_parameters():
+            para.requires_grad = False
+            
+        print('after frozen, require grad parameter names:')
+        for name, para in model.named_parameters():
+            if para.requires_grad:print(name)
+        return model
+    
+    def unfreeze_layer_weights(self, model, key):
+        """
+        Unfreeze the model weights based on the layer names.
+        
+        Args:
+            model (torch.Module): Input model.
+            key (str): Initial substring of the target layer. 
+        Returns:
+            torch.Module: model with layer unfreeze.
+        """
+        print('Going to apply weight unfrozen')
+        for name, para in model.named_parameters():
+            if name.startswith(key):
+                para.requires_grad = True
+        
+        print('after unfrozen, require grad parameter names:')
+        for name, para in model.named_parameters():
+            if para.requires_grad:print(name)
+        return model
 
     def init_projector(self, representations_dim, projector_dims):
         """
@@ -209,8 +250,13 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         video1, video2 = samples
 
         # video: batches of representations
-        video_rep1 = self.video_backbone(video1)
-        video_rep2 = self.video_backbone(video2)
+        if self.trainer.current_epoch < self.args.backbone_freeze_epochs:
+            with torch.no_grad():
+                video_rep1 = self.video_backbone(video1)
+                video_rep2 = self.video_backbone(video2)
+        else:
+            video_rep1 = self.video_backbone(video1)
+            video_rep2 = self.video_backbone(video2)
 
         # video: batches of embeddings
         video_emb1 = self.intra_video_projector(video_rep1)
@@ -239,8 +285,14 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         audio1, audio2 = samples
 
         # audio: batches of representations
-        audio_rep1 = self.audio_backbone(audio1)
-        audio_rep2 = self.audio_backbone(audio2)
+        if self.trainer.current_epoch < self.args.backbone_freeze_epochs:
+            with torch.no_grad():
+                audio_rep1 = self.audio_backbone(audio1)
+                audio_rep2 = self.audio_backbone(audio2)
+        else:
+            audio_rep1 = self.audio_backbone(audio1)
+            audio_rep2 = self.audio_backbone(audio2)
+        
 
         # audio: batches of embeddings
         audio_emb1 = self.intra_audio_projector(audio_rep1)
@@ -278,18 +330,6 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         if self.args.num_nodes * self.args.devices > 1:
             self.trainer.datamodule.train_dataset.dataset.video_sampler.set_epoch(epoch)
         
-        if epoch >= self.args.init_backbone_freeze_epochs:
-            # Unfreeze last block for video backbone
-            for name, para in self.video_backbone.named_parameters():
-                if name.startswith("blocks.4"):
-                    para.requires_grad = True
-            
-            # Unfreeze fc layer for audio backbone
-            for name, para in self.audio_backbone.named_parameters():
-                if name.startswith("fc"):
-                    para.requires_grad = True
-            
-
 
     def training_step(self, batch, batch_idx):
         """
