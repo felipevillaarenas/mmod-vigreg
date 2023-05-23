@@ -118,7 +118,6 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         # Freeze backbone
         video_backbone = self.freeze_model_weights(video_backbone)
         video_backbone = self.unfreeze_layer_weights(video_backbone, key="blocks.4")
-        video_backbone = self.unfreeze_layer_weights(video_backbone, key="blocks.3")
             
         return video_backbone
 

@@ -30,7 +30,7 @@ script_name = 'trainer.py'
 
 # Number of GPUs per Node, Nodes and Workers per GPU
 devices = 8
-num_nodes = 1
+num_nodes = 4
 num_workers = 5
 
 args = ['--data_path', dataset_kinetics400.as_named_input('kinetics400').as_download(),
