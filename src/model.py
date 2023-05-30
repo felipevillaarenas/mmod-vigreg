@@ -441,11 +441,8 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
             self.args.device_type = torch.device("cpu")
 
         # Load model with pretrained weights
-        model = MultiModVICRegModule(self.args, None)
-        checkpoint = torch.load(self.args.checkpoint_path, 
-                                map_location=self.args.device_type
-                                )
-        model.load_state_dict(checkpoint['state_dict'])
+        model = torch.load(self.args.checkpoint_path)
+        model.eval()
         model.to(self.args.device_type)
 
         # Selecting Backbone modality for evaluation protocol.
@@ -518,6 +515,9 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         # Get data specific to modality
         x = batch[self.args.eval_data_modality]
 
+        # Get labels
+        labels = batch['label']
+
         # Representations from pretrain backbone
         if self.args.eval_protocol == 'linear':
             with torch.no_grad():
@@ -528,20 +528,6 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
 
         # Linear projection
         y_hat = self.linear_layer(representations)
-
-        # Encode Labels TODO: fix annotation and remove this part
-        if self.args.eval_dataset == 'ucf101':
-            label_string = [ video .split('_')[1] for video in batch['video_name']]
-            labels = torch.tensor([self.args.dict_labels[l] for l in label_string])
-            labels = labels.to(device=self.args.device_type)
-        
-        elif self.args.eval_dataset == 'hmdb51':
-            label_string = batch['label']
-            labels = torch.tensor([self.args.dict_labels[l] for l in label_string])
-            labels = labels.to(device=self.args.device_type)
-
-        elif self.args.eval_dataset == 'kinetics400':
-            labels = batch['label']
 
         # Loss
         loss = F.cross_entropy(y_hat, labels)

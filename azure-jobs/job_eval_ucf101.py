@@ -14,28 +14,23 @@ from azureml.tensorboard import Tensorboard
 ws = Workspace.from_config()
 
 # Connect to traning cluster
-compute_name = 'cluster-a100-8gpus-80g'
-
+compute_name = 'cluster-v100-8gpus-32g' #'cluster-v100-4gpus-32g' 'cluster-a100-8gpus-80g'  'cluster-v100-8gpus-32g' 'cluster-a100-8gpus-40g'
 compute_target = ComputeTarget(workspace=ws, name=compute_name)
 
 # Connect to experiment
-experiment_name = 'mmod-vicreg-finetune-protocol-ucf101'
+experiment_name = 'mmod-vicreg-eval-ucf101'
 exp = Experiment(workspace=ws, name=experiment_name)
 
 # Connect to curated enviroment
-enviroment_name = 'SSL-Pytorch-v1-12-6'
+enviroment_name = 'SSL-Pytorch-v2'
 env = Environment.get(workspace=ws, name=enviroment_name)
 
-
 # Connecto to dataset
-dataset_name = 'ds_ucf101'
-datastore_name = 'wsdatalake_ucf101'
-datastore = ws.datastores[datastore_name]
-dataset = Dataset.get_by_name(ws, name=dataset_name)
+dataset_ucf101 = Dataset.get_by_name(ws, name='ucf_101')
 
 # Connect to Artifacts Datastore that contains pretrain model
 artifacts_datastore = ws.datastores['workspaceartifactstore']
-checkpoint = Dataset.File.from_files(path=(artifacts_datastore, 'ExperimentRun/dcid.mmod-vicregc-pretrain-ep200-4fps_1677253891_22c1bf03/logs/epoch=99-step=15700.ckpt'))
+checkpoint = Dataset.File.from_files(path=(artifacts_datastore, 'ExperimentRun/dcid.mmod-vicreg-train-pretrainedbackbones_1684901474_7b53dce9/outputs/model.pt'))
 
 # get root of git repo
 prefix = Path(__file__).parent
@@ -51,19 +46,18 @@ devices = 8
 num_nodes = 1
 
 # Number of workers 
-num_workers = 10
+num_workers = 5
 
-args = ['--data_path', dataset.as_named_input(dataset_name).as_download(), 
+args = ['--data_path', dataset_ucf101.as_named_input('ucf_101').as_download(), 
         '--checkpoint_path', checkpoint.as_named_input('checkpoint').as_download(),
         '--stage', 'eval',
-        '--eval_protocol', 'finetune',
+        '--eval_protocol', 'linear',
         '--eval_data_modality', 'video',
         '--eval_dataset', 'ucf101',
         '--eval_learning_rate', 0.2,
-        '--eval_weight_decay', 0.0,
+        '--eval_weight_decay', 0.1,
         '--eval_dropout_p', 0.8,
-        '--eval_scheduler_type','step',
-        '--max_epochs', 200,
+        '--max_epochs', 20,
         '--warmup_epochs', 0,
         '--accelerator', 'gpu',
         '--batch_size', 64,

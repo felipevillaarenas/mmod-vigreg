@@ -16,8 +16,6 @@ from datamodule import HMDB51DataModule
 from model import MultiModVICRegModule
 from model import EvaluatorModule
 
-from strategy import CacheDDPStrategy
-
 from azureml.core.run import Run
 
 
@@ -46,7 +44,7 @@ def train(args):
         strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
         plugins=MPIEnvironment(),
         precision=args.precision,
-        gradient_clip_val=0.5,
+        #gradient_clip_val=1,
         callbacks=callbacks,
         num_sanity_val_steps=0,
         logger=mlf_logger,
@@ -120,7 +118,7 @@ def eval(args):
         use_distributed_sampler=False
     )
 
-    model = torch.compile(model, mode="reduce-overhead") 
+    #model = torch.compile(model) 
     trainer.fit(model, datamodule=dm)
     
     # Saving model in outputs folder
@@ -172,8 +170,8 @@ def main():
     # Representations and Projections
     parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
     parser.add_argument("--intra_audio_projector", default="8192-8192", type=str)
-    parser.add_argument("--cross_video_to_audio_projector", default="1024-512-128", type=str)
-    parser.add_argument("--cross_audio_to_video_projector", default="1024-512-128", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="8192-8192-8192", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="8192-8192-8192", type=str)
 
     # Optim params
     parser.add_argument("--learning_rate", default=1.8, type=float)
@@ -184,7 +182,7 @@ def main():
     parser.add_argument("--weight_decay", default=1e-6, type=float)
     parser.add_argument("--momentum", default=0.9, type=float)
     parser.add_argument("--precision", default="16-mixed", type=str)#"16-mixed"
-    parser.add_argument("--num_train_samples", default=2.4e5, type=int)
+    parser.add_argument("--num_train_samples", default=2.45e5, type=int)
     parser.add_argument("--backbone_freeze_epochs", default=5, type=int)
 
     # Loss
@@ -201,7 +199,7 @@ def main():
     parser.add_argument("--num_nodes", default=1, type=int)
 
     # Evaluation args
-    parser.add_argument("--stage", default="pretrain", choices=["pretrain", "eval"], type=str)
+    parser.add_argument("--stage", default="eval", choices=["pretrain", "eval"], type=str)
 
     # Checkpoint & Model
     parser.add_argument("--checkpoint_path", default='./checkpoint.ckpt', type=str)
@@ -211,13 +209,12 @@ def main():
     # Eval Optim Params
     parser.add_argument("--eval_protocol", default="linear", choices=["finetune", "linear"], type=str)
     parser.add_argument("--eval_data_modality", default="video", choices=["audio", "video"], type=str)
-    parser.add_argument("--eval_dataset", default="kinetics400", choices=["ucf101", "hmdb51", "kinetics400"], type=str)
-    parser.add_argument("--eval_learning_rate", default=4.0, type=float)
+    parser.add_argument("--eval_dataset", default="ucf101", choices=["ucf101", "hmdb51", "kinetics400"], type=str)
+    parser.add_argument("--eval_learning_rate", default=0.2, type=float)
     parser.add_argument("--eval_weight_decay", default=0.0, type=float)
-    parser.add_argument("--eval_decay_epochs", default=(60,120,180), type=tuple)
+    parser.add_argument("--eval_decay_epochs", default=(10,15), type=tuple)
     parser.add_argument("--eval_gamma", default=0.1, type=float)
-    parser.add_argument("--eval_dropout_p", default=0.5, type=float)
-    parser.add_argument("--eval_scheduler_type", default='cosine', type=str)
+    parser.add_argument("--eval_dropout_p", default=0.8, type=float)
 
     args = parser.parse_args()
     
