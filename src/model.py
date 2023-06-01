@@ -47,26 +47,29 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         self.video_backbone = self.init_video_backbone()
         self.audio_backbone = self.init_audio_backbone()
 
-        # Init Projector
-        self.intra_video_projector = self.init_projector(
-            args.video_representations_dim,
-            args.intra_video_projector
-        )
+        # Init intra mode Projector
+        if self.args.intra_mod:
+            self.intra_video_projector = self.init_projector(
+                args.video_representations_dim,
+                args.intra_video_projector
+            )
 
-        self.intra_audio_projector = self.init_projector(
-            args.audio_representations_dim,
-            args.intra_audio_projector
-        )
+            self.intra_audio_projector = self.init_projector(
+                args.audio_representations_dim,
+                args.intra_audio_projector
+            )
 
-        self.cross_audio_to_video_projector = self.init_projector(
-            args.audio_representations_dim,
-            args.cross_audio_to_video_projector
-        )
+        # Init cross mode Projector
+        if self.args.cross_mod:
+            self.cross_audio_to_video_projector = self.init_projector(
+                args.audio_representations_dim,
+                args.cross_audio_to_video_projector
+            )
 
-        self.cross_video_to_audio_projector = self.init_projector(
-            args.video_representations_dim,
-            args.cross_video_to_audio_projector
-        )
+            self.cross_video_to_audio_projector = self.init_projector(
+                args.video_representations_dim,
+                args.cross_video_to_audio_projector
+            )
 
         self.num_features_intra_video = int(args.intra_video_projector.split("-")[-1])
         self.num_features_intra_audio = int(args.intra_audio_projector.split("-")[-1])

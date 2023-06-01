@@ -31,25 +31,25 @@ def train(args):
     callbacks = [LearningRateMonitor(), ModelCheckpoint(dirpath="./logs", save_last=True)]
 
     # MLFlow Logger
-    run = Run.get_context()
-    mlflow_url = run.experiment.workspace.get_mlflow_tracking_uri() 
-    mlf_logger = MLFlowLogger(experiment_name=run.experiment.name, tracking_uri=mlflow_url)
-    mlf_logger._run_id = run.id
+    #run = Run.get_context()
+    #mlflow_url = run.experiment.workspace.get_mlflow_tracking_uri() 
+    #mlf_logger = MLFlowLogger(experiment_name=run.experiment.name, tracking_uri=mlflow_url)
+    #mlf_logger._run_id = run.id
 
     trainer = Trainer(
         max_epochs=args.max_epochs,
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
-        plugins=MPIEnvironment(),
-        precision=args.precision,
+        #strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
+        #plugins=MPIEnvironment(),
+        #precision=args.precision,
         #gradient_clip_val=1,
         callbacks=callbacks,
         num_sanity_val_steps=0,
-        logger=mlf_logger,
-        sync_batchnorm=True,
-        use_distributed_sampler=False,
+        #logger=mlf_logger,
+        #sync_batchnorm=True,
+        #use_distributed_sampler=False,
     )
 
     dm = KineticsDataModule(args)
@@ -168,10 +168,12 @@ def main():
     parser.add_argument("--path_pretrained_backbone_weights", default="/home/azureuser/cloudfiles/code/weights/byol", type=str)
 
     # Representations and Projections
+    parser.add_argument('--intra_mod', type=bool, default=False)
+    parser.add_argument('--cross_mod', type=bool, default=True)
     parser.add_argument("--intra_video_projector", default="8192-8192-8192", type=str)
     parser.add_argument("--intra_audio_projector", default="8192-8192", type=str)
-    parser.add_argument("--cross_video_to_audio_projector", default="8192-8192-8192", type=str)
-    parser.add_argument("--cross_audio_to_video_projector", default="8192-8192-8192", type=str)
+    parser.add_argument("--cross_video_to_audio_projector", default="2048-512-128", type=str)
+    parser.add_argument("--cross_audio_to_video_projector", default="2048-512-128", type=str)
 
     # Optim params
     parser.add_argument("--learning_rate", default=1.8, type=float)
@@ -199,7 +201,7 @@ def main():
     parser.add_argument("--num_nodes", default=1, type=int)
 
     # Evaluation args
-    parser.add_argument("--stage", default="eval", choices=["pretrain", "eval"], type=str)
+    parser.add_argument("--stage", default="pretrain", choices=["pretrain", "eval"], type=str)
 
     # Checkpoint & Model
     parser.add_argument("--checkpoint_path", default='./checkpoint.ckpt', type=str)
