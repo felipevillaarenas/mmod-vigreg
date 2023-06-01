@@ -108,7 +108,7 @@ def eval(args):
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.num_nodes,
-        strategy='ddp',
+        strategy=DDPStrategy(find_unused_parameters=True, gradient_as_bucket_view=True),
         plugins=MPIEnvironment(),
         precision=args.precision,
         callbacks=callbacks,

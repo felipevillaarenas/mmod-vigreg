@@ -27,6 +27,8 @@ env = Environment.get(workspace=ws, name=enviroment_name)
 
 # Connecto to dataset
 dataset_ucf101 = Dataset.get_by_name(ws, name='ucf_101')
+dataset_byolweights = Dataset.get_by_name(ws, name='byolweights')
+
 
 # Connect to Artifacts Datastore that contains pretrain model
 artifacts_datastore = ws.datastores['workspaceartifactstore']
@@ -50,13 +52,14 @@ num_workers = 5
 
 args = ['--data_path', dataset_ucf101.as_named_input('ucf_101').as_download(), 
         '--checkpoint_path', checkpoint.as_named_input('checkpoint').as_download(),
+        '--path_pretrained_backbone_weights',dataset_byolweights.as_named_input('byolweights').as_download(),
         '--stage', 'eval',
         '--eval_protocol', 'linear',
         '--eval_data_modality', 'video',
         '--eval_dataset', 'ucf101',
-        '--eval_learning_rate', 0.2,
+        '--eval_learning_rate', 0.05,
         '--eval_weight_decay', 0.1,
-        '--eval_dropout_p', 0.8,
+        '--eval_dropout_p', 0.0,
         '--max_epochs', 20,
         '--warmup_epochs', 0,
         '--accelerator', 'gpu',

@@ -117,7 +117,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         
         # Freeze backbone
         video_backbone = self.freeze_model_weights(video_backbone)
-        video_backbone = self.unfreeze_layer_weights(video_backbone, key="blocks.4")
+        
+        # Unfreeze layer to pretrain intra modality
+        if self.args.intra_mod:
+            video_backbone = self.unfreeze_layer_weights(video_backbone, key="blocks.4")
             
         return video_backbone
 
@@ -131,7 +134,10 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         
         # Freeze backbone
         audio_backbone = self.freeze_model_weights(audio_backbone)
-        audio_backbone = self.unfreeze_layer_weights(audio_backbone, key="fc")
+
+        # Unfreeze layer to pretrain intra modality
+        if self.args.intra_mod:
+            audio_backbone = self.unfreeze_layer_weights(audio_backbone, key="fc")
         return audio_backbone
     
     def freeze_model_weights(self, model):
@@ -205,20 +211,33 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         Returns:
             dict: Summary of losses.
         """
+        # Representations per modality
         video = batch['video']
         audio = batch['audio']
-        
-        intra_video_loss, video_reps = self.intra_video_step(video)
-        intra_audio_loss, audio_reps = self.intra_audio_step(audio)
 
-        video_rep1, video_rep2 = video_reps
-        audio_rep1, audio_rep2 = audio_reps
+        video_reps = self.video_representation_step(video)
+        audio_reps = self.audio_representation_step(audio)
 
-        cross_video_audio_loss = (
-            self.cross_video_audio_step(video_rep1, audio_rep1) * 0.5  +
-            self.cross_video_audio_step(video_rep2, audio_rep2) * 0.5
-        )
+        # Get losses intra modality
+        if self.args.intra_mod:
+            intra_video_loss = self.intra_video_step(video_reps)
+            intra_audio_loss = self.intra_audio_step(audio_reps)
+        else:
+            intra_video_loss, intra_audio_loss = (0.0, 0.0)
 
+        # Get losses cross modality
+        if  self.args.cross_mod:
+            video_rep1, video_rep2 = video_reps
+            audio_rep1, audio_rep2 = audio_reps
+
+            cross_video_audio_loss = (
+                self.cross_video_audio_step(video_rep1, audio_rep1) * 0.5  +
+                self.cross_video_audio_step(video_rep2, audio_rep2) * 0.5
+            )
+        else:
+            cross_video_audio_loss = 0.0
+
+        # Get total weighted loss
         loss = (
             self.args.intra_coeff * intra_video_loss
             + self.args.intra_coeff * intra_audio_loss
@@ -230,19 +249,16 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             'intra_audio_loss': intra_audio_loss,
             'cross_video_audio_loss': cross_video_audio_loss
         }
-
-    def intra_video_step(self, samples):
+    
+    def video_representation_step(self, samples):
         """
         Calculates the video representations of clips from the same video.
-        Such representations are expanded using a projection head. Finally,
-        the variance, invariance and covariance loss is calculated.
 
         Args:
             samples (tuple): Random video clips from the same video.
 
         Returns:
             tuple containing:
-                - intra_video_loss: VICReg Loss for video intra modality.
                 - (video_rep1, video_rep2): Video representations for clip1 and clip2.
         """
         # video: batches of transform views
@@ -257,29 +273,42 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
             video_rep1 = self.video_backbone(video1)
             video_rep2 = self.video_backbone(video2)
 
+        return (video_rep1, video_rep2)
+
+    def intra_video_step(self, video_representations):
+        """
+        Representations are expanded using a projection head. Finally,
+        the variance, invariance and covariance loss is calculated.
+
+        Args:
+            video_representations (tuple):  Video representations for clip1 and clip2. 
+
+        Returns:
+            tuple containing:
+                - intra_video_loss: VICReg Loss for video intra modality.
+        """
+        # video: reprsentations
+        video_rep1, video_rep2 = video_representations
+
         # video: batches of embeddings
         video_emb1 = self.intra_video_projector(video_rep1)
         video_emb2 = self.intra_video_projector(video_rep2)
 
         # loss intra video modality
         intra_video_loss = self.loss_intra_video(video_emb1, video_emb2)
-        return intra_video_loss, (video_rep1, video_rep2)
+        return intra_video_loss
 
-    def intra_audio_step(self, samples):
+    def audio_representation_step(self, samples):
         """
         Calculates the audio representations of clips from the same audio.
-        Such representations are expanded using a projection head. Finally,
-        the variance, invariance and covariance loss is calculated.
 
         Args:
             samples (tuple): Random audio clips from the same audio.
 
         Returns:
             tuple containing:
-                - intra_audio_loss: VICReg Loss for audio intra modality.
                 - (audio_rep1, audio_rep2): Audio representations for clip1 and clip2.
         """
-        
         # audio: batches of transform views
         audio1, audio2 = samples
 
@@ -291,7 +320,25 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
         else:
             audio_rep1 = self.audio_backbone(audio1)
             audio_rep2 = self.audio_backbone(audio2)
+
+        return (audio_rep1, audio_rep2)
+
+    def intra_audio_step(self, audio_representations):
+        """
+        Calculates the audio representations of clips from the same audio.
+        Such representations are expanded using a projection head. Finally,
+        the variance, invariance and covariance loss is calculated.
+
+        Args:
+            audio_representations (tuple): Audio representations for clip1 and clip2.
+
+        Returns:
+            tuple containing:
+                - intra_audio_loss: VICReg Loss for audio intra modality.
+        """
         
+        # audio: representations
+        (audio_rep1, audio_rep2) = audio_representations
 
         # audio: batches of embeddings
         audio_emb1 = self.intra_audio_projector(audio_rep1)
@@ -299,7 +346,7 @@ class MultiModVICRegModule(pytorch_lightning.LightningModule):
 
         # loss intra audio modality
         intra_audio_loss = self.loss_intra_audio(audio_emb1, audio_emb2)
-        return intra_audio_loss, (audio_rep1, audio_rep2)
+        return intra_audio_loss
 
     def cross_video_audio_step(self, video_rep, audio_rep):
         """
@@ -428,7 +475,7 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
 
     def init_backbone(self):
         """
-        Load pretrain Multi-Mode VICRec model. Selects the modality backbone 
+        Load pretrain Multi-Mode VICRec model or original BYOL model. Selects the modality backbone 
         (e.g. audio or video) that will be used during the evaluation protocol.
 
         Returns:
@@ -439,22 +486,57 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
             self.args.device_type = torch.device("cuda")
         else:
             self.args.device_type = torch.device("cpu")
-
-        # Load model with pretrained weights
-        model = torch.load(self.args.checkpoint_path)
-        model.eval()
-        model.to(self.args.device_type)
-
+        
         # Selecting Backbone modality for evaluation protocol.
         if self.args.eval_data_modality == 'video':
-            backbone = model.video_backbone
-            self.args.representations_dim = model.args.video_representations_dim 
+            if self.arg.backbone_eval == "byol":
+                backbone = load_pretrained_video_byol(args=self.args)
+                self.args.representations_dim = 2048
 
-        elif self.args.eval_data_modality == 'audio':
-            backbone = model.audio_backbone
-            self.args.representations_dim = model.args.audio_representations_dim 
+            if self.arg.backbone_eval == "mmod-vicreg":
+                model = torch.load(self.args.checkpoint_path)
+                backbone = model.video_backbone
+                self.args.representations_dim = model.args.video_representations_dim 
+
+            if self.arg.backbone_eval == "crossmod-vicreg":
+                model = torch.load(self.args.checkpoint_path)
+                backbone = model.video_backbone
+                self.args.representations_dim = model.args.video_representations_dim 
+
+
+        #elif self.args.eval_data_modality == 'audio':
+        #    backbone = model.audio_backbone
+        #    self.args.representations_dim = model.args.audio_representations_dim 
         
         return backbone
+    
+    def init_crossmode_proj(self):
+        """
+        Load pretrain Cross-Mode projector from the VICRec model. Selects the modality backbone 
+        (e.g. audio or video) that will be used during the evaluation protocol.
+
+        Returns:
+            nn.Module: Cross Modality projector.
+        """
+        # Selecting Backbone modality for evaluation protocol.
+        if self.args.eval_data_modality == 'video':
+            
+            if self.arg.backbone_eval == "crossmod-vicreg":
+                model = torch.load(self.args.checkpoint_path)
+                cross_mod_projector = model.cross_video_to_audio_projector
+                self.args.projector_dim = model.args.cross_video_to_audio_projector
+            else:
+                cross_mod_projector = None
+        
+        if self.args.eval_data_modality == 'audio':
+            
+            if self.arg.backbone_eval == "crossmod-vicreg":
+                model = torch.load(self.args.checkpoint_path)
+                cross_mod_projector = model.cross_audio_to_video_projector
+                self.args.projector_dim = model.args.cross_audio_to_video_projector
+            else:
+                cross_mod_projector = None
+        return cross_mod_projector
 
     def init_linear_layer(self):
         """
