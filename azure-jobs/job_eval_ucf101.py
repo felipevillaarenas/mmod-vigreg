@@ -29,10 +29,9 @@ env = Environment.get(workspace=ws, name=enviroment_name)
 dataset_ucf101 = Dataset.get_by_name(ws, name='ucf_101')
 dataset_byolweights = Dataset.get_by_name(ws, name='byolweights')
 
-
 # Connect to Artifacts Datastore that contains pretrain model
 artifacts_datastore = ws.datastores['workspaceartifactstore']
-checkpoint = Dataset.File.from_files(path=(artifacts_datastore, 'ExperimentRun/dcid.mmod-vicreg-train-pretrainedbackbones_1684901474_7b53dce9/outputs/model.pt'))
+checkpoint = Dataset.File.from_files(path=(artifacts_datastore, 'ExperimentRun/dcid.mmod-vicreg-train-pretrainedbackbones_1685625805_e0efba92/outputs/model.pt'))
 
 # get root of git repo
 prefix = Path(__file__).parent

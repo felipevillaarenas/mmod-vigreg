@@ -471,6 +471,7 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
 
         # Init video backbone
         self.backbone = self.init_backbone()
+        self.crossmod_proj = self.init_crossmod_proj()
         self.linear_layer = self.init_linear_layer()
 
         # metrics
@@ -485,35 +486,20 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
             nn.Module: Modality backbone.
         """
 
-        if torch.cuda.is_available():
-            self.args.device_type = torch.device("cuda")
-        else:
-            self.args.device_type = torch.device("cpu")
-        
+        model = torch.load(self.args.checkpoint_path)
+
         # Selecting Backbone modality for evaluation protocol.
         if self.args.eval_data_modality == 'video':
-            if self.arg.backbone_eval == "byol":
-                backbone = load_pretrained_video_byol(args=self.args)
-                self.args.representations_dim = 2048
+            backbone = model.video_backbone
+            self.args.representations_dim = model.args.video_representations_dim 
 
-            if self.arg.backbone_eval == "mmod-vicreg":
-                model = torch.load(self.args.checkpoint_path)
-                backbone = model.video_backbone
-                self.args.representations_dim = model.args.video_representations_dim 
-
-            if self.arg.backbone_eval == "crossmod-vicreg":
-                model = torch.load(self.args.checkpoint_path)
-                backbone = model.video_backbone
-                self.args.representations_dim = model.args.video_representations_dim 
-
-
-        #elif self.args.eval_data_modality == 'audio':
-        #    backbone = model.audio_backbone
-        #    self.args.representations_dim = model.args.audio_representations_dim 
+        elif self.args.eval_data_modality == 'audio':
+            backbone = model.audio_backbone
+            self.args.representations_dim = model.args.audio_representations_dim 
         
         return backbone
     
-    def init_crossmode_proj(self):
+    def init_crossmod_proj(self):
         """
         Load pretrain Cross-Mode projector from the VICRec model. Selects the modality backbone 
         (e.g. audio or video) that will be used during the evaluation protocol.
@@ -523,20 +509,20 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         """
         # Selecting Backbone modality for evaluation protocol.
         if self.args.eval_data_modality == 'video':
-            
-            if self.arg.backbone_eval == "crossmod-vicreg":
+
+            if self.args.crossmod_proj_eval:
                 model = torch.load(self.args.checkpoint_path)
                 cross_mod_projector = model.cross_video_to_audio_projector
-                self.args.projector_dim = model.args.cross_video_to_audio_projector
+                self.args.projector_dim = int(model.args.cross_audio_to_video_projector.split("-")[-1])
             else:
                 cross_mod_projector = None
         
         if self.args.eval_data_modality == 'audio':
             
-            if self.arg.backbone_eval == "crossmod-vicreg":
+            if self.args.crossmod_proj_eval:
                 model = torch.load(self.args.checkpoint_path)
                 cross_mod_projector = model.cross_audio_to_video_projector
-                self.args.projector_dim = model.args.cross_audio_to_video_projector
+                self.args.projector_dim = int(model.args.cross_audio_to_video_projector.split("-")[-1])
             else:
                 cross_mod_projector = None
         return cross_mod_projector
@@ -545,9 +531,14 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
         """
         Layer for linear evaluation. 
         """
+        if self.args.crossmod_proj_eval:
+            input_dim = self.args.representations_dim + self.args.projector_dim 
+        else:
+            input_dim = self.args.representations_dim
+        
         linear_layer =  nn.Sequential(
             nn.Dropout(p=self.args.eval_dropout_p), 
-            nn.Linear(self.args.representations_dim, self.args.num_classes, bias=True)
+            nn.Linear(input_dim, self.args.num_classes, bias=True)
         )
         return linear_layer
  
@@ -608,8 +599,19 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
             with torch.no_grad():
                 representations = self.backbone(x)
 
+                # If cross mod projection is enable
+                if self.args.crossmod_proj_eval:
+                    crossmod_emb = self.crossmod_proj(representations)
+                    representations = torch.cat((representations, crossmod_emb), dim=1)
+
         elif self.args.eval_protocol == 'finetune':
             representations = self.backbone(x)
+
+            # If cross mod projection is enable
+            if self.args.crossmod_proj_eval:
+                crossmod_emb = self.crossmod_proj(representations)
+                representations = torch.cat((representations, crossmod_emb), dim=1)
+
 
         # Linear projection
         y_hat = self.linear_layer(representations)
@@ -622,7 +624,7 @@ class EvaluatorModule(pytorch_lightning.LightningModule):
   
     def configure_optimizers(self):
         """
-        We use the SGD optimizer with multi-step leraning rate scheduler.
+        We use the SGD optimizer with multi-step learning rate scheduler.
         scheduler.
         """
         optimizer = torch.optim.SGD(
